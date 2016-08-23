@@ -1,0 +1,8 @@
+/build/
+/conf/hotspot_compiler
+/data/
+/doc/cql3/CQL.html
+/logs/
+/pylib/cqlshlib/*.pyc
+/src/gen-java/
+/src/resources/org/apache/cassandra/config/
