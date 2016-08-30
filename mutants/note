@@ -1,10 +1,18 @@
-Setting limit to total physical memory available in Linux
+TODO: Measuring disk latency
+- https://github.com/koct9i/ioping
+- http://freecode.com/projects/fio
+
+
+Show price and latencies.
+- TODO: Let’s do 4K reads and 128kb writes. 128kb seems to be the biggest write size
+	to a block device from my experiment. TODO: Do the same on all EBS devices.
+
+
+TODO: Setting limit to total physical memory available in Linux
 - http://stackoverflow.com/questions/13484016/setting-limit-to-total-physical-memory-available-in-linux
 - With this, you might not need to set Xms in cassandra/conf/jvm.options
-
-
-Measuring disk latency
-- http://freecode.com/projects/fio
+- You may want an IO-provisioned EBS with this option. Since there won't be
+	enough memory for file system cache.  We'll see.
 
 
 Compaction strategy.
