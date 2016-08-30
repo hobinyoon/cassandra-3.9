@@ -162,6 +162,10 @@
 #-Xms4G
 #-Xmx4G
 
+# Mutants: simulate a small memory node
+-Xms512M
+-Xmx512M
+
 # Young generation size is automatically calculated by cassandra-env
 # based on this formula: min(100 * num_cores, 1/4 * heap size)
 #
