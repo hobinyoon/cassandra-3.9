@@ -798,6 +798,8 @@ compaction_throughput_mb_per_sec: 16
 # are completely written, and used in place of the prior sstables for
 # any range that has been written. This helps to smoothly transfer reads 
 # between the sstables, reducing page cache churn and keeping hot rows hot
+#
+# Mutants: Would this benefit Mutants?
 sstable_preemptive_open_interval_in_mb: 50
 
 # Throttles all outbound streaming file transfers on this node to the
@@ -1143,4 +1145,4 @@ gc_warn_threshold_in_ms: 1000
 # Maximum size of any value in SSTables. Safety measure to detect SSTable corruption
 # early. Any value size larger than this threshold will result into marking an SSTable
 # as corrupted.
-max_value_size_in_mb: 256
+# max_value_size_in_mb: 256
