@@ -1,12 +1,6 @@
-TODO: Measuring disk latency
-- https://github.com/koct9i/ioping
-- http://freecode.com/projects/fio
-
-
-Show price and latencies.
-- TODO: Let’s do 4K reads and 128kb writes. 128kb seems to be the biggest write size
-	to a block device from my experiment. TODO: Do the same on all EBS devices.
-
+TODO: sstable_size_in_mb. Looks like it is only in the LCS. Why would you want
+to limit the size? Anyway it is the way to go. To be fair with the other
+databases.
 
 TODO: Setting limit to total physical memory available in Linux
 - http://stackoverflow.com/questions/13484016/setting-limit-to-total-physical-memory-available-in-linux
@@ -14,6 +8,12 @@ TODO: Setting limit to total physical memory available in Linux
 - You may want an IO-provisioned EBS with this option. Since there won't be
 	enough memory for file system cache.  We'll see.
 
+--------
+
+"A maximum size for SSTables values has been introduced, to prevent out of
+memory exceptions when reading corrupt SSTables. This maximum size can be set
+via max_value_size_in_mb in cassandra.yaml. The default is 256MB"
+- https://git1-us-west.apache.org/repos/asf?p=cassandra.git;a=blob_plain;f=NEWS.txt;hb=refs/tags/cassandra-3.0.8
 
 Compaction strategy.
 - SizeTieredCompactionStrategy (STCS) is the default one.
