@@ -42,5 +42,5 @@ cassandra-env.sh for more info.
 
 WARN  15:00:31 Cassandra server running in degraded mode. Is swap disabled? :
 true,  Address space adequate? : true,  nofile limit adequate? : false, nproc
-limit adequate? : true 
+limit adequate? : true
   - https://docs.datastax.com/en/landing_page/doc/landing_page/troubleshooting/cassandra/insufficientResources.html
