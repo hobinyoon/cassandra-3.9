@@ -16,8 +16,9 @@ import Util
 def main(argv):
 	RestartDstat()
 
-	# Run Cassandra in the foreground
-	Util.RunSubp("%s/work/mutants/cassandra/bin/cassandra -f | \grep --color=always -E '(^|^WARN)'" \
+	# Run Cassandra in the foreground. grep needs to be unbuffered.
+	Util.RunSubp("%s/work/mutants/cassandra/bin/cassandra -f" \
+			" | \grep --color=always --line-buffered -E '(^|^WARN)'" \
 			% os.path.expanduser("~"))
 
 
