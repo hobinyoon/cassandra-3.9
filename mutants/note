@@ -2,12 +2,6 @@ TODO: sstable_size_in_mb. Looks like it is only in the LCS. Why would you want
 to limit the size? Anyway it is the way to go. To be fair with the other
 databases.
 
-TODO: Setting limit to total physical memory available in Linux
-- http://stackoverflow.com/questions/13484016/setting-limit-to-total-physical-memory-available-in-linux
-- With this, you might not need to set Xms in cassandra/conf/jvm.options
-- You may want an IO-provisioned EBS with this option. Since there won't be
-	enough memory for file system cache.  We'll see.
-
 --------
 
 "A maximum size for SSTables values has been introduced, to prevent out of
