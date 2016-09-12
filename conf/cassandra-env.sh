@@ -161,8 +161,12 @@ USING_G1=$?
 # times. If in doubt, and if you do not particularly want to tweak, go with
 # 100 MB per physical CPU core.
 
-#MAX_HEAP_SIZE="4G"
-#HEAP_NEWSIZE="800M"
+# Mutants: small-scale experiment
+# - https://docs.datastax.com/en/cassandra/3.x/cassandra/operations/opsTuneJVM.html
+MAX_HEAP_SIZE="512M"
+HEAP_NEWSIZE="128M"
+echo "MAX_HEAP_SIZE="${MAX_HEAP_SIZE}
+echo "HEAP_NEWSIZE="${HEAP_NEWSIZE}
 
 # Set this to control the amount of arenas per-thread in glibc
 #export MALLOC_ARENA_MAX=4
