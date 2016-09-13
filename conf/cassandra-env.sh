@@ -163,8 +163,11 @@ USING_G1=$?
 
 # Mutants: small-scale experiment
 # - https://docs.datastax.com/en/cassandra/3.x/cassandra/operations/opsTuneJVM.html
-MAX_HEAP_SIZE="512M"
-HEAP_NEWSIZE="128M"
+# - Simulate a 2 GB ram node
+#   - 0.4 GB to OS
+#   - 1.6 GB allocated to Cassandra, including page cache.
+MAX_HEAP_SIZE="1024M"
+HEAP_NEWSIZE="256M"
 echo "MAX_HEAP_SIZE="${MAX_HEAP_SIZE}
 echo "HEAP_NEWSIZE="${HEAP_NEWSIZE}
 
