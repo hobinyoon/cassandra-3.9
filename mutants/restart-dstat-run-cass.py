@@ -64,7 +64,7 @@ def RestartDstat():
 					time.sleep(0.1)
 
 		# Run dstat as a daemon
-		fn_out = "%s/work/mutants/log/dstat-%s.csv" \
+		fn_out = "%s/work/mutants/log-volatile/dstat/%s.csv" \
 				% (os.path.expanduser("~"), datetime.datetime.now().strftime("%y%m%d-%H%M%S"))
 		cmd = "dstat -tcdn -C total -D xvda,xvdb,xvde,xvdf -r --output %s" % fn_out
 		Util.RunDaemon(cmd)
