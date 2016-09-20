@@ -30,48 +30,56 @@ public class MemSsTableAccessMon
     private static Map<Memtable, _MemTableAccCnt> _memTableAccCnt = new ConcurrentHashMap();
     private static Map<Descriptor, _SSTableAccCnt> _ssTableAccCnt = new ConcurrentHashMap();
 
+    // These are for the initial get-and-set synchronizations.
+    private static Object _memTableAccCntLock = new Object();
+    private static Object _ssTableAccCntLock = new Object();
+
     private static volatile boolean _updatedSinceLastOutput = false;
     private static OutputRunnable _or = null;
     private static Thread _outThread = null;
     private static final Logger logger = LoggerFactory.getLogger(MemSsTableAccessMon.class);
 
     private static class _MemTableAccCnt {
+        // We only keep the number of accesses here. We don't need to know if
+        // the requested record is there or not.
         private AtomicLong accesses;
-        private AtomicLong hits;
         private boolean discarded = false;
         private boolean loggedAfterDiscarded = false;
 
-        public _MemTableAccCnt(long accesses, long hits) {
+        public _MemTableAccCnt(long accesses) {
             this.accesses = new AtomicLong(accesses);
-            this.hits = new AtomicLong(hits);
         }
 
-        public void Increment(boolean hit) {
+        public void Increment() {
             this.accesses.incrementAndGet();
-            if (hit)
-                this.hits.incrementAndGet();
         }
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder(40);
-            sb.append(accesses.get()).append(",").append(hits.get());
-            return sb.toString();
+            return Long.toString(accesses.get());
+            //StringBuilder sb = new StringBuilder(30);
+            //sb.append(accesses.get());
+            //return sb.toString();
         }
     }
 
     private static class _SSTableAccCnt {
         private SSTableReader _sstr;
         //private AtomicLong _bf_positives;
+
+        // This is the actual number of accesses to the data file.
+        // SSTableReader.getReadMeter().count() includes BF negatives.  You
+        // still don't know if it hits the physical disk or not. Frequently
+        // accessed blocks are cached in the Linux page cache.
         private AtomicLong _numNeedToReadDatafile;
 
         private boolean deleted = false;
         private boolean loggedAfterDiscarded = false;
 
-        public _SSTableAccCnt(SSTableReader sstr) {
+        public _SSTableAccCnt(SSTableReader sstr, long numNeedToReadDataFile) {
             _sstr = sstr;
             //_bf_positives = new AtomicLong(0);
-            _numNeedToReadDatafile = new AtomicLong(0);
+            _numNeedToReadDatafile = new AtomicLong(numNeedToReadDataFile);
         }
 
         //public void IncrementBfPositives() {
@@ -88,14 +96,16 @@ public class MemSsTableAccessMon
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder(80);
-            sb.append(_sstr.getReadMeter().count())
-                //.append(",").append(_bf_positives.get())
-                .append(",").append(_numNeedToReadDatafile.get())
-                .append(",").append(_sstr.getBloomFilterTruePositiveCount())
-                .append(",").append(_sstr.getBloomFilterFalsePositiveCount())
-                ;
-            return sb.toString();
+            return Long.toString(_numNeedToReadDatafile.get());
+
+            //StringBuilder sb = new StringBuilder(30);
+            //sb.append(_numNeedToReadDatafile.get());
+            //    // We don't need bloom filter statistics for now.
+            //    //.append(",")._sstr.getReadMeter().count())
+            //    ////.append(",").append(_bf_positives.get())
+            //    //.append(",").append(_sstr.getBloomFilterTruePositiveCount())
+            //    //.append(",").append(_sstr.getBloomFilterFalsePositiveCount())
+            //return sb.toString();
         }
     }
 
@@ -116,52 +126,51 @@ public class MemSsTableAccessMon
         logger.warn("Mutants: Node configuration:[{}]", Config.GetNodeConfigStr());
     }
 
-    // TODO: I'm not understanding "ColumnFamily cf" here 
-    //public static void Update(Memtable m, ColumnFamily cf) {
     public static void Update(Memtable m) {
-        // There is a race condition here, but harmless.  It happens only when
-        // m is not in the map yet, which is very rare.
-        //
+        _updatedSinceLastOutput = true;
+
         // I wonder if you can get the min and max timestamps of records in the
         // memtable? I don't see them from Memtable.
+        // - I can't remember why you needed it.
         _MemTableAccCnt v = _memTableAccCnt.get(m);
-        if (v != null) {
-            //v.Increment(cf != null);
-            // TODO
-            v.Increment(true);
-            _updatedSinceLastOutput = true;
+        if (v == null) {
+            synchronized (_memTableAccCntLock) {
+                v = _memTableAccCnt.get(m);
+                if (v == null) {
+                    _memTableAccCnt.put(m, new _MemTableAccCnt(1));
+                    _or.Wakeup();
+                } else {
+                    v.Increment();
+                }
+            }
         } else {
-            //_memTableAccCnt.put(m, new _MemTableAccCnt(1, (cf == null) ? 0 : 1));
-            // TODO
-            _memTableAccCnt.put(m, new _MemTableAccCnt(1, 1));
-            _updatedSinceLastOutput = true;
-            _or.Wakeup();
+            v.Increment();
         }
     }
 
-
-    public static void Update(SSTableReader r) {
-        Descriptor sst_desc = r.descriptor;
-
-        // The race condition (time of check and modify) that may overwrite the
-        // first put() is harmless. It avoids an expensive locking.
-        // Log right after the first access to a tablet, i.e., right after the
-        // creation of _SSTableAccCnt(). It will help visualize the gap between
-        // the creation of the tmp tablet and the first access to the regular
-        // tablet.
-        if (_ssTableAccCnt.get(sst_desc) == null) {
-            _ssTableAccCnt.put(sst_desc, new _SSTableAccCnt(r));
-            _updatedSinceLastOutput = true;
-            _or.Wakeup();
-        } else {
-            _updatedSinceLastOutput = true;
-        }
-    }
-
-
+    // These can be rewritten with test and test-and-set if needed.
+    //
+    //public static void Update(SSTableReader r) {
+    //    Descriptor sst_desc = r.descriptor;
+    //
+    //    // The race condition (time of check and modify) that may overwrite the
+    //    // first put() is harmless. It avoids an expensive locking.
+    //    // Log right after the first access to a tablet, i.e., right after the
+    //    // creation of _SSTableAccCnt(). It will help visualize the gap between
+    //    // the creation of the tmp tablet and the first access to the regular
+    //    // tablet.
+    //    if (_ssTableAccCnt.get(sst_desc) == null) {
+    //        _ssTableAccCnt.put(sst_desc, new _SSTableAccCnt(r));
+    //        _updatedSinceLastOutput = true;
+    //        _or.Wakeup();
+    //    } else {
+    //        _updatedSinceLastOutput = true;
+    //    }
+    //}
+    //
     //public static void BloomfilterPositive(SSTableReader r) {
     //    Descriptor sst_desc = r.descriptor;
-
+    //
     //    _SSTableAccCnt sstAC = _ssTableAccCnt.get(sst_desc);
     //    if (sstAC == null) {
     //        sstAC = new _SSTableAccCnt(r);
@@ -175,20 +184,29 @@ public class MemSsTableAccessMon
     //    }
     //}
 
+    // Mutants: I wonder how much overhead does this Monitoring has.  Might be
+    // a good one to present.
 
     public static void IncrementSstNeedToReadDataFile(SSTableReader r) {
+        _updatedSinceLastOutput = true;
         Descriptor sst_desc = r.descriptor;
-
         _SSTableAccCnt sstAC = _ssTableAccCnt.get(sst_desc);
+
+        // Test and test-and-set to make the synchronization overhead
+        // minimal. It happens only in the beginning when _ssTableAccCnt
+        // doesn't have the _SSTableAccCnt object.
         if (sstAC == null) {
-            sstAC = new _SSTableAccCnt(r);
-            sstAC.IncrementNumNeedToReadDataFile();
-            _ssTableAccCnt.put(sst_desc, sstAC);
-            _updatedSinceLastOutput = true;
-            _or.Wakeup();
+            synchronized (_ssTableAccCntLock) {
+                sstAC = _ssTableAccCnt.get(sst_desc);
+                if (sstAC == null) {
+                    _ssTableAccCnt.put(sst_desc, new _SSTableAccCnt(r, 1));
+                    _or.Wakeup();
+                } else {
+                    sstAC.IncrementNumNeedToReadDataFile();
+                }
+            }
         } else {
             sstAC.IncrementNumNeedToReadDataFile();
-            _updatedSinceLastOutput = true;
         }
     }
 
@@ -208,7 +226,7 @@ public class MemSsTableAccessMon
     public static void Created(Memtable m) {
         logger.warn("Mutants: MemtCreated {}", m);
         if (_memTableAccCnt.get(m) == null)
-            _memTableAccCnt.put(m, new _MemTableAccCnt(0, 0));
+            _memTableAccCnt.put(m, new _MemTableAccCnt(0));
         _or.Wakeup();
     }
 

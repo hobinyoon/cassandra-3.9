@@ -42,6 +42,7 @@ import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.metrics.TableMetrics;
+import org.apache.cassandra.mutants.MemSsTableAccessMon;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.schema.IndexMetadata;
@@ -53,6 +54,7 @@ import org.apache.cassandra.thrift.ThriftResultsMerger;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.SearchIterator;
+import org.apache.cassandra.utils.Tracer;
 import org.apache.cassandra.utils.btree.BTreeSet;
 import org.apache.cassandra.utils.concurrent.OpOrder;
 
@@ -357,6 +359,9 @@ public class SinglePartitionReadCommand extends ReadCommand
     @SuppressWarnings("resource") // we close the created iterator through closing the result of this method (and SingletonUnfilteredPartitionIterator ctor cannot fail)
     protected UnfilteredPartitionIterator queryStorage(final ColumnFamilyStore cfs, ReadExecutionController executionController)
     {
+        //logger.warn("Mutants: mutantsTable={}, cfs.isRowCacheEnabled()={}"
+        //        , cfs.metadata.mutantsTable, cfs.isRowCacheEnabled());
+
         UnfilteredRowIterator partition = cfs.isRowCacheEnabled()
                                         ? getThroughCache(cfs, executionController)
                                         : queryMemtableAndDisk(cfs, executionController);
@@ -491,7 +496,19 @@ public class SinglePartitionReadCommand extends ReadCommand
     public UnfilteredRowIterator queryMemtableAndDisk(ColumnFamilyStore cfs, ReadExecutionController executionController)
     {
         assert executionController != null && executionController.validForReadOn(cfs);
-        // TODO: restart form here!!!!
+
+        //logger.warn("Mutants:\n{}", Tracer.GetCallStack());
+        // org.apache.cassandra.db.SinglePartitionReadCommand.queryMemtableAndDisk(SinglePartitionReadCommand.java:497)
+        // org.apache.cassandra.db.SinglePartitionReadCommand.queryStorage(SinglePartitionReadCommand.java:363)
+        // org.apache.cassandra.db.ReadCommand.executeLocally(ReadCommand.java:397)
+        // org.apache.cassandra.service.StorageProxy$LocalReadRunnable.runMayThrow(StorageProxy.java:1801)
+        // org.apache.cassandra.service.StorageProxy$DroppableRunnable.run(StorageProxy.java:2486)
+        // java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+        // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$FutureTask.run(AbstractLocalAwareExecutorService.java:164)
+        // org.apache.cassandra.concurrent.AbstractLocalAwareExecutorService$LocalSessionFutureTask.run(AbstractLocalAwareExecutorService.java:136)
+        // org.apache.cassandra.concurrent.SEPWorker.run(SEPWorker.java:109)
+        // java.lang.Thread.run(Thread.java:745)
+
         Tracing.trace("Executing single-partition query on {}", cfs.name);
 
         return queryMemtableAndDiskInternal(cfs);
@@ -505,6 +522,8 @@ public class SinglePartitionReadCommand extends ReadCommand
 
     private UnfilteredRowIterator queryMemtableAndDiskInternal(ColumnFamilyStore cfs)
     {
+        //logger.warn("Mutants: mutantsTable={}", cfs.metadata.mutantsTable);
+
         /*
          * We have 2 main strategies:
          *   1) We query memtables and sstables simulateneously. This is our most generic strategy and the one we use
@@ -525,18 +544,16 @@ public class SinglePartitionReadCommand extends ReadCommand
         ClusteringIndexFilter filter = clusteringIndexFilter();
         long minTimestamp = Long.MAX_VALUE;
 
-        // Hmmm... So, this is not on the read path, but just for tracing.
-        // ksName=system_traces
-        //
-        //logger.warn("Mutants: cfs.metadata={}", cfs.metadata);
-        // ksName=system_traces,cfName=events
+        if (cfs.metadata.mutantsTable) {
+            logger.warn("Mutants: ksName={} cfName={} Just to see if a Mutants table takes this path"
+                    , cfs.metadata.ksName, cfs.metadata.cfName);
+        }
+        // Mutants: ksName=system_traces takes this path.
 
         try
         {
             for (Memtable memtable : view.memtables)
             {
-                //logger.warn("Mutants: memtable.cfs.metadata={}", memtable.cfs.metadata);
-
                 Partition partition = memtable.getPartition(partitionKey());
                 if (partition == null)
                     continue;
@@ -724,6 +741,11 @@ public class SinglePartitionReadCommand extends ReadCommand
 
         ImmutableBTreePartition result = null;
 
+        //if (cfs.metadata.mutantsTable) {
+        //    logger.warn("Mutants: ksName={} cfName={}"
+        //            , cfs.metadata.ksName, cfs.metadata.cfName);
+        //}
+
         Tracing.trace("Merging memtable contents");
         for (Memtable memtable : view.memtables)
         {
@@ -735,6 +757,10 @@ public class SinglePartitionReadCommand extends ReadCommand
             {
                 if (iter.isEmpty())
                     continue;
+
+                if (cfs.metadata.mutantsTable) {
+                    MemSsTableAccessMon.Update(memtable);
+                }
 
                 result = add(isForThrift() ? ThriftResultsMerger.maybeWrap(iter, nowInSec()) : iter, result, filter, false);
             }
@@ -758,6 +784,8 @@ public class SinglePartitionReadCommand extends ReadCommand
             if (filter == null)
                 break;
 
+            // Mutants: BF is test is at a lower level, BigTableReader.java.
+
             if (!shouldInclude(sstable))
             {
                 // This mean that nothing queried by the filter can be in the sstable. One exception is the top-level partition deletion
@@ -779,6 +807,7 @@ public class SinglePartitionReadCommand extends ReadCommand
                 }
                 continue;
             }
+
 
             Tracing.trace("Merging data from sstable {}", sstable.descriptor.generation);
             sstable.incrementReadCount();

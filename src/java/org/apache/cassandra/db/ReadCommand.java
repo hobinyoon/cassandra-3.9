@@ -392,6 +392,9 @@ public abstract class ReadCommand extends MonitorableImpl implements ReadQuery
             searcher = index.searcherFor(this);
             Tracing.trace("Executing read on {}.{} using index {}", cfs.metadata.ksName, cfs.metadata.cfName, index.getIndexMetadata().name);
         }
+        //logger.warn("Mutants: ksName={} cfName={} mutantsTable={}"
+        //        , cfs.metadata.ksName, cfs.metadata.cfName, cfs.metadata.mutantsTable);
+        // [ReadStage-2] ReadCommand.java:398 Mutants: ksName=ycsb cfName=usertable mutantsTable=true
 
         UnfilteredPartitionIterator resultIterator = searcher == null
                                          ? queryStorage(cfs, executionController)

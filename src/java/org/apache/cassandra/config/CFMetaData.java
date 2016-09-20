@@ -326,7 +326,7 @@ public final class CFMetaData
         if (isCompactTable())
             this.compactValueColumn = CompactTables.getCompactValueColumn(partitionColumns, isSuper());
 
-        logger.warn("Mutants: ksName={} cfName={}", ksName, cfName);
+        //logger.warn("Mutants: ksName={} cfName={}", ksName, cfName);
         mutantsTable = (ksName.equals("ycsb") && cfName.equals("usertable"));
     }
 

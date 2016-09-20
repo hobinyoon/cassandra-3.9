@@ -414,7 +414,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
 
         if (metadata.mutantsTable) {
             MemSsTableAccessMon.Clear();
-            logger.warn("MTDB: metadata={}", metadata);
+            //logger.warn("Mutants: metadata={}", metadata);
         }
 
         // scan for sstables corresponding to this cf and load them

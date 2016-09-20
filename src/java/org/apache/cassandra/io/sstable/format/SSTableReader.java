@@ -59,6 +59,7 @@ import org.apache.cassandra.io.sstable.metadata.*;
 import org.apache.cassandra.io.util.*;
 import org.apache.cassandra.metrics.RestorableMeter;
 import org.apache.cassandra.metrics.StorageMetrics;
+import org.apache.cassandra.mutants.MemSsTableAccessMon;
 import org.apache.cassandra.schema.CachingParams;
 import org.apache.cassandra.schema.IndexMetadata;
 import org.apache.cassandra.service.ActiveRepairService;
@@ -1981,6 +1982,12 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
      */
     public void incrementReadCount()
     {
+        // Mutants: This includes BF negatives. Actual disk IO may or may not
+        // happen. Monitoring BigTableReader is better.
+        //if (metadata.mutantsTable) {
+        //    MemSsTableAccessMon.Update(this);
+        //}
+
         if (readMeter != null)
             readMeter.mark();
     }

@@ -1,3 +1,40 @@
+
+TODO: Add more events. Create (multiple types of them?), delete.
+
+
+Monitor the number of need-to-read-datafile, a more accurate metric than
+SSTableReader.incrementReadCount().
+- Still you don't know how many real disk IOs are there since many of them are
+  absorbed by the Linux page cache.
+
+There are 2 read paths. In queryMemtableAndDiskInternal(), you can
+short-circuit with queryMemtableAndSSTablesInTimestampOrder() or take the other
+path.
+
+Cassandra doesn't use row cache by default.
+- cassandra.yaml says row_cache_size_in_mb: 0.
+- Row cache is not enabled from the table description either.
+    cqlsh> desc ycsb.usertable;
+    CREATE TABLE ycsb.usertable (
+        y_id text PRIMARY KEY,
+        field0 text,
+        ...
+        field9 text
+    ) WITH bloom_filter_fp_chance = 0.1
+        AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+        AND comment = ''
+        AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+        AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+        AND crc_check_chance = 1.0
+        AND dclocal_read_repair_chance = 0.1
+        AND default_time_to_live = 0
+        AND gc_grace_seconds = 864000
+        AND max_index_interval = 2048
+        AND memtable_flush_period_in_ms = 0
+        AND min_index_interval = 128
+        AND read_repair_chance = 0.0
+        AND speculative_retry = '99PERCENTILE';
+
 Diff Mutants on Cassandra 2.x
   ~/work/mutants/cassandra-2.2.3/src/java/org/apache/cassandra$ git diff 7274a40605a5c6f5a9400022db4833e2116510fb .
 
