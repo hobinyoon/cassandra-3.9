@@ -42,6 +42,7 @@ import org.apache.cassandra.io.sstable.metadata.MetadataComponent;
 import org.apache.cassandra.io.sstable.metadata.MetadataType;
 import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 import org.apache.cassandra.io.util.FileUtils;
+import org.apache.cassandra.mutants.MemSsTableAccessMon;
 import org.apache.cassandra.utils.concurrent.Transactional;
 
 /**
@@ -86,6 +87,11 @@ public abstract class SSTableWriter extends SSTable implements Transactional
         this.header = header != null ? header : SerializationHeader.makeWithoutStats(metadata); //null header indicates streaming from pre-3.0 sstable
         this.rowIndexEntrySerializer = descriptor.version.getSSTableFormat().getIndexSerializer(metadata, descriptor.version, header);
         this.observers = observers == null ? Collections.emptySet() : observers;
+
+        // Only tmp SSTables are created here. They are moved to regular
+        // SSTables later on.
+        if (descriptor.mutantsTable)
+            MemSsTableAccessMon.Created(descriptor);
     }
 
     public static SSTableWriter create(Descriptor descriptor,

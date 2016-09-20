@@ -1,6 +1,15 @@
 
-TODO: Add more events. Create (multiple types of them?), delete.
+TODO: Take a note of what events Mutants is tracking! Should go in the paper.
+- Some of them might be common to all DBs; others not.
 
+Print SSTable level in the stat.
+- SSTable levels start with 0. There can be multiple 0s.
+- MemTable doesn't seem to have a level.
+
+LCS tablet size? 160 MB by default. Confirmed by experiments.
+- [https://docs.datastax.com/en/cassandra/2.1/cassandra/operations/ops_configure_compaction_t.html]
+
+Do you want to keep track of Memtable write count? Not needed for now.
 
 Monitor the number of need-to-read-datafile, a more accurate metric than
 SSTableReader.incrementReadCount().

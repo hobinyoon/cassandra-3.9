@@ -96,8 +96,12 @@ public class MemSsTableAccessMon
 
         @Override
         public String toString() {
-            return Long.toString(_numNeedToReadDatafile.get());
-
+            StringBuilder sb = new StringBuilder(40);
+            sb.append(_sstr.getSSTableLevel())
+                .append(",")
+                .append(_numNeedToReadDatafile.get());
+            return sb.toString();
+            // We don't need bloom filter statistics for now.
             //StringBuilder sb = new StringBuilder(30);
             //sb.append(_numNeedToReadDatafile.get());
             //    // We don't need bloom filter statistics for now.
@@ -105,7 +109,6 @@ public class MemSsTableAccessMon
             //    ////.append(",").append(_bf_positives.get())
             //    //.append(",").append(_sstr.getBloomFilterTruePositiveCount())
             //    //.append(",").append(_sstr.getBloomFilterFalsePositiveCount())
-            //return sb.toString();
         }
     }
 

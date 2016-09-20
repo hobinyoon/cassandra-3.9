@@ -118,7 +118,6 @@ public abstract class SSTable
         if (components.contains(Component.SUMMARY))
             FileUtils.delete(desc.filenameFor(Component.SUMMARY));
 
-        logger.trace("Deleted {}", desc);
         if (desc.mutantsTable)
             MemSsTableAccessMon.Deleted(desc);
         return true;
