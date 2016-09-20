@@ -70,6 +70,7 @@ import org.apache.cassandra.io.sstable.metadata.MetadataCollector;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.metrics.TableMetrics;
 import org.apache.cassandra.metrics.TableMetrics.Sampler;
+import org.apache.cassandra.mutants.MemSsTableAccessMon;
 import org.apache.cassandra.schema.*;
 import org.apache.cassandra.service.CacheService;
 import org.apache.cassandra.service.StorageService;
@@ -410,6 +411,11 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         sampleLatencyNanos = DatabaseDescriptor.getReadRpcTimeout() / 2;
 
         logger.info("Initializing {}.{}", keyspace.getName(), name);
+
+        if (metadata.mutantsTable) {
+            MemSsTableAccessMon.Clear();
+            logger.warn("MTDB: metadata={}", metadata);
+        }
 
         // scan for sstables corresponding to this cf and load them
         data = new Tracker(this, loadSSTables);
@@ -1201,6 +1207,8 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 {
                     readBarrier.await();
                     memtable.setDiscarded();
+                    if (memtable.cfs.metadata.mutantsTable)
+                        MemSsTableAccessMon.Discarded(memtable);
                 }
             });
         }

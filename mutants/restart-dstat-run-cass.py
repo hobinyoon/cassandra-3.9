@@ -25,7 +25,7 @@ def main(argv):
 
 	# Run Cassandra in the foreground. grep needs to be unbuffered.
 	Util.RunSubp("cgexec -g memory:small_mem %s/work/mutants/cassandra/bin/cassandra -f" \
-			" | \grep --color=always --line-buffered -E '(^|^WARN)'" \
+			" | \grep --color=always --line-buffered -E '(^|MTDB|Mutants|mutants_)'" \
 			% os.path.expanduser("~"))
 
 

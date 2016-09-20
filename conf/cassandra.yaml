@@ -1146,3 +1146,25 @@ gc_warn_threshold_in_ms: 1000
 # early. Any value size larger than this threshold will result into marking an SSTable
 # as corrupted.
 # max_value_size_in_mb: 256
+
+mutants_options:
+    # Option whether to migrate SSTablets to colder storages. Useful for
+    # comparing performance.
+    migrate_sstables: false
+
+    # How often Mutants makes SSTable migration decisions
+    sst_migration_decision_interval_in_ms: 100
+    # Tablet temperature monitor time window length
+    sst_tempmon_time_window_in_sec: 10
+    # The average number of need-to-read-dfiles per sec in the monitoring time
+    # window
+    # TODO: will need multiple threshold for different storages
+    sst_tempmon_threshold_num_per_sec: 1
+
+    # TODO
+    cold_storage_dir: /mnt/cold-storage/mtdb-cold
+
+    # Tablet access stat report interval. This is just for plotting. Tablet
+    # migration decisions are made in every
+    # sst_tempmon_decision_interval_in_ms.
+    tablet_access_stat_report_interval_in_ms: 100

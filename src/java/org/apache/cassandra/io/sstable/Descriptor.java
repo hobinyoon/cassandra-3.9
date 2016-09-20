@@ -39,6 +39,9 @@ import org.apache.cassandra.utils.Pair;
 
 import static org.apache.cassandra.io.sstable.Component.separator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * A SSTable is described by the keyspace and column family it contains data
  * for, a generation (where higher generations contain more recent data) and
@@ -48,6 +51,8 @@ import static org.apache.cassandra.io.sstable.Component.separator;
  */
 public class Descriptor
 {
+    private static final Logger logger = LoggerFactory.getLogger(Descriptor.class);
+
     public static String TMP_EXT = ".tmp";
 
     /** canonicalized path to the directory where SSTable resides */
@@ -61,6 +66,9 @@ public class Descriptor
     /** digest component - might be {@code null} for old, legacy sstables */
     public final Component digestComponent;
     private final int hashCode;
+
+    public final boolean mutantsTable;
+    private int temperatureLevel;
 
     /**
      * A descriptor that assumes CURRENT_VERSION.
@@ -104,6 +112,23 @@ public class Descriptor
         this.digestComponent = digestComponent;
 
         hashCode = Objects.hashCode(version, this.directory, generation, ksname, cfname, formatType);
+
+        mutantsTable = (ksname.equals("ycsb") && cfname.equals("usertable"));
+
+        // TODO: enum
+        temperatureLevel = 0;
+        if (mutantsTable) {
+            //logger.warn("Mutants: {} {}"
+            //        , directory
+            //        , Directories.coldDataDirectory.location);
+            // TODO
+            //try {
+            //    if (directory.getCanonicalPath().startsWith(Directories.coldDataDirectory.location.getCanonicalPath()))
+            //        temperatureLevel = 1;
+            //} catch (IOException e) {
+            //    throw new RuntimeException(e);
+            //}
+        }
     }
 
     public Descriptor withGeneration(int newGeneration)
@@ -362,5 +387,9 @@ public class Descriptor
     public int hashCode()
     {
         return hashCode;
+    }
+
+    public int TemperatureLevel() {
+        return temperatureLevel;
     }
 }

@@ -306,6 +306,8 @@ public class Config
 
     public int windows_timer_interval = 0;
 
+    public MutantsOptions mutants_options = new MutantsOptions();
+
     /**
      * Size of the CQL prepared statements cache in MB.
      * Defaults to 1/256th of the heap size or 10MB, whichever is greater.
@@ -436,6 +438,8 @@ public class Config
         add("server_encryption_options");
     }};
 
+    private static String configString;
+
     public static void log(Config config)
     {
         Map<String, String> configMap = new TreeMap<>();
@@ -465,6 +469,12 @@ public class Config
             configMap.put(name, value);
         }
 
-        logger.info("Node configuration:[{}]", Joiner.on("; ").join(configMap.entrySet()));
+        configString = Joiner.on("; ").join(configMap.entrySet());
+        logger.info("Node configuration:[{}]", configString);
+    }
+
+    public static String GetNodeConfigStr()
+    {
+        return configString;
     }
 }

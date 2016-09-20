@@ -561,7 +561,8 @@ public class CassandraDaemon
      * is a hook for JSVC.
      */
     public void destroy()
-    {}
+    {
+    }
 
     /**
      * A convenience method to initialize and start the daemon in one shot.
@@ -571,6 +572,8 @@ public class CassandraDaemon
         // Do not put any references to DatabaseDescriptor above the forceStaticInitialization call.
         try
         {
+            logger.warn("Mutants: CassandraDaemon activate");
+
             try
             {
                 DatabaseDescriptor.forceStaticInitialization();
@@ -668,6 +671,7 @@ public class CassandraDaemon
     {
         stop();
         destroy();
+
         // completely shut down cassandra
         if(!runManaged)
         {

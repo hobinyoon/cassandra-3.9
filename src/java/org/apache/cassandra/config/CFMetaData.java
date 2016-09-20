@@ -121,6 +121,8 @@ public final class CFMetaData
 
     public final DataResource resource;
 
+    public boolean mutantsTable;
+
     /*
      * All of these methods will go away once CFMetaData becomes completely immutable.
      */
@@ -295,6 +297,7 @@ public final class CFMetaData
 
         this.serializers = new Serializers(this);
         this.resource = DataResource.table(ksName, cfName);
+
         rebuild();
     }
 
@@ -322,6 +325,9 @@ public final class CFMetaData
 
         if (isCompactTable())
             this.compactValueColumn = CompactTables.getCompactValueColumn(partitionColumns, isSuper());
+
+        logger.warn("Mutants: ksName={} cfName={}", ksName, cfName);
+        mutantsTable = (ksName.equals("ycsb") && cfName.equals("usertable"));
     }
 
     public Indexes getIndexes()
@@ -1126,6 +1132,7 @@ public final class CFMetaData
             .append("flags", flags)
             .append("params", params)
             .append("comparator", comparator)
+            .append("mutantsTable", mutantsTable)
             .append("partitionColumns", partitionColumns)
             .append("partitionKeyColumns", partitionKeyColumns)
             .append("clusteringColumns", clusteringColumns)

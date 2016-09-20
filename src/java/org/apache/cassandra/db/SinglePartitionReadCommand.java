@@ -56,12 +56,16 @@ import org.apache.cassandra.utils.SearchIterator;
 import org.apache.cassandra.utils.btree.BTreeSet;
 import org.apache.cassandra.utils.concurrent.OpOrder;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A read command that selects a (part of a) single partition.
  */
 public class SinglePartitionReadCommand extends ReadCommand
 {
+    private static final Logger logger = LoggerFactory.getLogger(SinglePartitionReadCommand.class);
+
     protected static final SelectionDeserializer selectionDeserializer = new Deserializer();
 
     private final DecoratedKey partitionKey;
@@ -487,6 +491,7 @@ public class SinglePartitionReadCommand extends ReadCommand
     public UnfilteredRowIterator queryMemtableAndDisk(ColumnFamilyStore cfs, ReadExecutionController executionController)
     {
         assert executionController != null && executionController.validForReadOn(cfs);
+        // TODO: restart form here!!!!
         Tracing.trace("Executing single-partition query on {}", cfs.name);
 
         return queryMemtableAndDiskInternal(cfs);
@@ -520,10 +525,18 @@ public class SinglePartitionReadCommand extends ReadCommand
         ClusteringIndexFilter filter = clusteringIndexFilter();
         long minTimestamp = Long.MAX_VALUE;
 
+        // Hmmm... So, this is not on the read path, but just for tracing.
+        // ksName=system_traces
+        //
+        //logger.warn("Mutants: cfs.metadata={}", cfs.metadata);
+        // ksName=system_traces,cfName=events
+
         try
         {
             for (Memtable memtable : view.memtables)
             {
+                //logger.warn("Mutants: memtable.cfs.metadata={}", memtable.cfs.metadata);
+
                 Partition partition = memtable.getPartition(partitionKey());
                 if (partition == null)
                     continue;
