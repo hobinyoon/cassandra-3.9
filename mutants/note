@@ -1,10 +1,7 @@
-TODO: sstable_size_in_mb. Looks like it is only in the LCS. Why would you want
-to limit the size? Anyway it is the way to go. To be fair with the other
-databases.
 
 --------
 
-"A maximum size for SSTables values has been introduced, to prevent out of
+"A maximum size for SSTables "values" has been introduced, to prevent out of
 memory exceptions when reading corrupt SSTables. This maximum size can be set
 via max_value_size_in_mb in cassandra.yaml. The default is 256MB"
 - https://git1-us-west.apache.org/repos/asf?p=cassandra.git;a=blob_plain;f=NEWS.txt;hb=refs/tags/cassandra-3.0.8
