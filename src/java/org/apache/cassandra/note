@@ -1,6 +1,9 @@
-
 TODO: Take a note of what events Mutants is tracking! Should go in the paper.
 - Some of them might be common to all DBs; others not.
+- Monitoring API
+  - Some of them are for understanding of how Tablets are created and merged.
+- Tablet Migration API
+
 
 Print SSTable level in the stat.
 - SSTable levels start with 0. There can be multiple 0s.
