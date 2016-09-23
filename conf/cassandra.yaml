@@ -792,7 +792,9 @@ column_index_cache_size_in_kb: 2
 # 16 to 32 times the rate you are inserting data is more than sufficient.
 # Setting this to 0 disables throttling. Note that this account for all types
 # of compaction, including validation compaction.
-compaction_throughput_mb_per_sec: 16
+#compaction_throughput_mb_per_sec: 16
+# For fast SSTable stabilization.
+compaction_throughput_mb_per_sec: 0
 
 # When compacting, the replacement sstable(s) can be opened before they
 # are completely written, and used in place of the prior sstables for
@@ -1167,4 +1169,4 @@ mutants_options:
     # Tablet access stat report interval. This is just for plotting. Tablet
     # migration decisions are made in every
     # sst_tempmon_decision_interval_in_ms.
-    tablet_access_stat_report_interval_in_ms: 100
+    tablet_access_stat_report_interval_in_ms: 500
