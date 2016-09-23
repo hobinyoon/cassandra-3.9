@@ -413,7 +413,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         logger.info("Initializing {}.{}", keyspace.getName(), name);
 
         if (metadata.mutantsTable) {
-            MemSsTableAccessMon.Clear();
+            MemSsTableAccessMon.Reset();
             //logger.warn("Mutants: metadata={}", metadata);
         }
 

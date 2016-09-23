@@ -1,5 +1,7 @@
 package org.apache.cassandra.mutants;
 
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -97,6 +99,7 @@ public class MemSsTableAccessMon
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder(40);
+            // Note: Keep the level here for now. It may change at runtime.
             sb.append(_sstr.getSSTableLevel())
                 .append(",")
                 .append(_numNeedToReadDatafile.get());
@@ -122,10 +125,11 @@ public class MemSsTableAccessMon
         // design.
     }
 
-    public static void Clear() {
+    // Called when a ColumnFamilyStore (table) is created.
+    public static void Reset() {
         _memTableAccCnt.clear();
         _ssTableAccCnt.clear();
-        logger.warn("Mutants: ClearAccStat");
+        logger.warn("Mutants: ResetMon");
         logger.warn("Mutants: Node configuration:[{}]", Config.GetNodeConfigStr());
     }
 
@@ -217,6 +221,7 @@ public class MemSsTableAccessMon
     public static long GetNumSstNeedToReadDataFile(SSTableReader r) {
         _SSTableAccCnt sstAC = _ssTableAccCnt.get(r.descriptor);
         if (sstAC == null) {
+            // TODO: what was this?
             // Harmless
             return 0;
         } else {
@@ -233,12 +238,6 @@ public class MemSsTableAccessMon
         _or.Wakeup();
     }
 
-    // SSTable created. A tmp sstable is created.
-    public static void Created(Descriptor d) {
-        logger.warn("Mutants: SstCreated {}", d);
-        _or.Wakeup();
-    }
-
     // MemTable discarded
     public static void Discarded(Memtable m) {
         _MemTableAccCnt v = _memTableAccCnt.get(m);
@@ -252,6 +251,32 @@ public class MemSsTableAccessMon
         _updatedSinceLastOutput = true;
         logger.warn("Mutants: MemtDiscard {}", m);
         _or.Wakeup();
+    }
+
+    private static SimpleDateFormat _sdf = new SimpleDateFormat("yyMMdd-HHmmss.SSS");
+
+    public static void SstOpened(SSTableReader r) {
+        Timestamp min_ts = new Timestamp(r.getMinTimestamp() / 1000);
+        Timestamp max_ts = new Timestamp(r.getMaxTimestamp() / 1000);
+        logger.warn("Mutants: SstOpened descriptor={} openReason={} bytesOnDisk()={}"
+                + " level={} minTimestamp={} maxTimestamp={} first.getToken()={} last.getToken()={}"
+                , r.descriptor, r.openReason, r.bytesOnDisk()
+                , r.getSSTableLevel()
+                , _sdf.format(min_ts), _sdf.format(max_ts)
+                , r.first.getToken(), r.last.getToken()
+                );
+    }
+
+    public static void SstCreated(SSTableReader r) {
+        Timestamp min_ts = new Timestamp(r.getMinTimestamp() / 1000);
+        Timestamp max_ts = new Timestamp(r.getMaxTimestamp() / 1000);
+        logger.warn("Mutants: SstCreated descriptor={} openReason={} bytesOnDisk()={}"
+                + " level={} minTimestamp={} maxTimestamp={} first.getToken()={} last.getToken()={}"
+                , r.descriptor, r.openReason, r.bytesOnDisk()
+                , r.getSSTableLevel()
+                , _sdf.format(min_ts), _sdf.format(max_ts)
+                , r.first.getToken(), r.last.getToken()
+                );
     }
 
     // SSTable discarded
@@ -341,6 +366,9 @@ public class MemSsTableAccessMon
                                 , m.toString()
                                 , pair.getValue().toString()));
                 }
+
+                // Note: Could reduce the log by printing out the diff.
+                // SSTables without changes in counts are not printed.
                 for (Iterator it = _ssTableAccCnt.entrySet().iterator(); it.hasNext(); ) {
                     Map.Entry pair = (Map.Entry) it.next();
                     Descriptor d = (Descriptor) pair.getKey();

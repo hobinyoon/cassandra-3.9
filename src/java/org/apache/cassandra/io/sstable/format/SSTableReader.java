@@ -68,6 +68,7 @@ import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.concurrent.OpOrder;
 import org.apache.cassandra.utils.concurrent.Ref;
 import org.apache.cassandra.utils.concurrent.SelfRefCounted;
+import org.apache.cassandra.utils.Tracer;
 
 import static org.apache.cassandra.db.Directories.SECONDARY_INDEX_NAME_SEPARATOR;
 
@@ -422,7 +423,8 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
         }
 
         long fileLength = new File(descriptor.filenameFor(Component.DATA)).length();
-        logger.debug("Opening {} ({})", descriptor, FBUtilities.prettyPrintMemory(fileLength));
+        //logger.debug("Opening {} ({})", descriptor, FBUtilities.prettyPrintMemory(fileLength));
+
         SSTableReader sstable = internalOpen(descriptor,
                                              components,
                                              metadata,
@@ -443,6 +445,12 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
             sstable.dfile = dbuilder.buildData(sstable.descriptor, statsMetadata);
             sstable.bf = FilterFactory.AlwaysPresent;
             sstable.setup(false);
+
+            if (sstable.descriptor.mutantsTable) {
+                logger.warn("Mutants: SstOpen {} {} bytes",
+                        sstable.descriptor, new File(sstable.descriptor.filenameFor(Component.DATA)).length());
+            }
+
             return sstable;
         }
     }
@@ -479,7 +487,8 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
         }
 
         long fileLength = new File(descriptor.filenameFor(Component.DATA)).length();
-        logger.debug("Opening {} ({})", descriptor, FBUtilities.prettyPrintMemory(fileLength));
+        //logger.debug("Opening {} ({})", descriptor, FBUtilities.prettyPrintMemory(fileLength));
+
         SSTableReader sstable = internalOpen(descriptor,
                                              components,
                                              metadata,
@@ -501,6 +510,12 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
 
             if (sstable.getKeyCache() != null)
                 logger.trace("key cache contains {}/{} keys", sstable.getKeyCache().size(), sstable.getKeyCache().getCapacity());
+
+            // ERROR 17:46:27.695 [Reference-Reaper:1] Ref.java:224 LEAK DETECTED: a reference (org.apache.cassandra.utils.concurrent.Ref$State@2007809e) to class org.apache.cassandra.io.sstable.format.SSTableReader$InstanceTidier@784366318:/mnt/local-ssd0/mutants/cassandra/data/data/ycsb/usertable-9a53688081b511e6b66d3d7595663f3d/mc-1-big was not released before the reference was garbage collected
+            //
+            // The error disappeared for nothing. Hmm.
+            if (sstable.descriptor.mutantsTable)
+                MemSsTableAccessMon.SstOpened(sstable);
 
             return sstable;
         }
@@ -629,6 +644,28 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
         this.maxDataAge = maxDataAge;
         this.openReason = openReason;
         this.rowIndexEntrySerializer = descriptor.version.getSSTableFormat().getIndexSerializer(metadata, desc.version, header);
+
+        // Figuring out where this is called. The caller must initialize
+        // first and last after this.
+        //if (desc.mutantsTable) {
+        //    //logger.warn("Mutants:\n{}", Tracer.GetCallStack());
+        //}
+        // org.apache.cassandra.io.sstable.format.SSTableReader.<init>(SSTableReader.java:678)
+        // org.apache.cassandra.io.sstable.format.big.BigTableReader.<init>(BigTableReader.java:60)
+        // org.apache.cassandra.io.sstable.format.big.BigFormat$ReaderFactory.open(BigFormat.java:101)
+        // org.apache.cassandra.io.sstable.format.SSTableReader.internalOpen(SSTableReader.java:644)
+        // org.apache.cassandra.io.sstable.format.SSTableReader.internalOpen(SSTableReader.java:622)
+        // org.apache.cassandra.io.sstable.format.big.BigTableWriter.openFinal(BigTableWriter.java:322)
+        // org.apache.cassandra.io.sstable.format.big.BigTableWriter.access$600(BigTableWriter.java:51)
+        // org.apache.cassandra.io.sstable.format.big.BigTableWriter$TransactionalProxy.doPrepare(BigTableWriter.java:358)
+        // org.apache.cassandra.utils.concurrent.Transactional$AbstractTransactional.prepareToCommit(Transactional.java:173)
+        // org.apache.cassandra.io.sstable.format.SSTableWriter.prepareToCommit(SSTableWriter.java:289)
+        // org.apache.cassandra.io.sstable.SimpleSSTableMultiWriter.prepareToCommit(SimpleSSTableMultiWriter.java:101)
+        // org.apache.cassandra.db.ColumnFamilyStore$Flush.flushMemtable(ColumnFamilyStore.java:1146)
+        // org.apache.cassandra.db.ColumnFamilyStore$Flush.run(ColumnFamilyStore.java:1090)
+        // java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+        // java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+        // java.lang.Thread.run(Thread.java:745)
     }
 
     public static long getTotalBytes(Iterable<SSTableReader> sstables)

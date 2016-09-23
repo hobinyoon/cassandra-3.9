@@ -29,11 +29,14 @@ def main(argv):
 			"|Mutants: ClearAccStat" \
 			"|Mutants: MemtCreated" \
 			"|Mutants: MemtDiscard" \
-			"|Mutants: SstCreated" \
 			"|Mutants: SstDeleted" \
+			"|Mutants: SSTableReader" \
+			"|Mutants: SstCreated" \
+			"|Mutants: SstOpened" \
 			"|Mutants" \
 			"|mutants_" \
 			"|MTDB" \
+			"|ERROR" \
 			")'" \
 			% os.path.expanduser("~"))
 
