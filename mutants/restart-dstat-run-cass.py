@@ -130,7 +130,7 @@ def RestartDstat():
 
 		fn_out = "%s/%s.csv" \
 				% (dn, datetime.datetime.now().strftime("%y%m%d-%H%M%S"))
-		cmd = "dstat -tcdn -C total -D xvda,xvdb,xvdd,xvde,xvdf -r --output %s" % fn_out
+		cmd = "dstat -tcdn -C total -D xvda,xvdb,xvdc,xvdd,xvde,xvdf -r --output %s" % fn_out
 		Util.RunDaemon(cmd)
 
 
