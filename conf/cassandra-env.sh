@@ -168,8 +168,8 @@ USING_G1=$?
 #   - 1.6 GB allocated to Cassandra, including page cache.
 #MAX_HEAP_SIZE="1024M"
 #HEAP_NEWSIZE="256M"
-echo "MAX_HEAP_SIZE="${MAX_HEAP_SIZE}
-echo "HEAP_NEWSIZE="${HEAP_NEWSIZE}
+#echo "MAX_HEAP_SIZE="${MAX_HEAP_SIZE}
+#echo "HEAP_NEWSIZE="${HEAP_NEWSIZE}
 
 # Set this to control the amount of arenas per-thread in glibc
 #export MALLOC_ARENA_MAX=4
