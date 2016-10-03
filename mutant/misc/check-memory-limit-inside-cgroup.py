@@ -3,7 +3,7 @@
 import os
 import sys
 
-sys.path.insert(0, "%s/work/mutants/ec2-tools/lib/util" % os.path.expanduser("~"))
+sys.path.insert(0, "%s/work/mutant/ec2-tools/lib/util" % os.path.expanduser("~"))
 
 import Cons
 import Util

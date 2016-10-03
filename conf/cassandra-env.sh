@@ -161,13 +161,13 @@ USING_G1=$?
 # times. If in doubt, and if you do not particularly want to tweak, go with
 # 100 MB per physical CPU core.
 
-# Mutants: small-scale experiment
+# Mutant: small-scale experiment
 # - https://docs.datastax.com/en/cassandra/3.x/cassandra/operations/opsTuneJVM.html
 # - Simulate a 2 GB ram node
 #   - 0.4 GB to OS
 #   - 1.6 GB allocated to Cassandra, including page cache.
-MAX_HEAP_SIZE="1024M"
-HEAP_NEWSIZE="256M"
+#MAX_HEAP_SIZE="1024M"
+#HEAP_NEWSIZE="256M"
 echo "MAX_HEAP_SIZE="${MAX_HEAP_SIZE}
 echo "HEAP_NEWSIZE="${HEAP_NEWSIZE}
 

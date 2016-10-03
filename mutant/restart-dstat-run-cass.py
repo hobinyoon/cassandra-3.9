@@ -7,11 +7,11 @@ import subprocess
 import sys
 import types
 
-sys.path.insert(0, "%s/work/mutants/ec2-tools/lib/util" % os.path.expanduser("~"))
+sys.path.insert(0, "%s/work/mutant/ec2-tools/lib/util" % os.path.expanduser("~"))
 import Cons
 import Util
 
-sys.path.insert(0, "%s/work/mutants/ec2-tools/lib" % os.path.expanduser("~"))
+sys.path.insert(0, "%s/work/mutant/ec2-tools/lib" % os.path.expanduser("~"))
 import BotoClient
 
 
@@ -24,7 +24,7 @@ def main(argv):
 	Util.RunSubp("sudo cgconfigparser -l %s/cgconfig.conf" % os.path.dirname(__file__))
 
 	# Run Cassandra in the foreground. grep needs to be unbuffered.
-	Util.RunSubp("cgexec -g memory:small_mem %s/work/mutants/cassandra/bin/cassandra -f" \
+	Util.RunSubp("cgexec -g memory:small_mem %s/work/mutant/cassandra/bin/cassandra -f" \
 			" | \grep --color=always --line-buffered -E '(^" \
 			"|Mutants: ClearAccStat" \
 			"|Mutants: MemtCreated" \
@@ -122,7 +122,7 @@ def RestartDstat():
 					time.sleep(0.1)
 
 		# Run dstat as a daemon
-		dn = "%s/work/mutants/log/%s/%s/dstat" \
+		dn = "%s/work/mutant/log/%s/%s/dstat" \
 				% (os.path.expanduser("~")
 						, GetEc2Tags()["job_id"]
 						, GetEc2Tags()["name"].replace("server", "s").replace("client", "c"))
@@ -130,6 +130,7 @@ def RestartDstat():
 
 		fn_out = "%s/%s.csv" \
 				% (dn, datetime.datetime.now().strftime("%y%m%d-%H%M%S"))
+		# TODO: include devices if exist
 		cmd = "dstat -tcdn -C total -D xvda,xvdb,xvdc,xvdd,xvde,xvdf -r --output %s" % fn_out
 		Util.RunDaemon(cmd)
 
@@ -142,7 +143,7 @@ def KillExistingCassandra():
 		#Cons.P(lines)
 		pids = []
 		for line in lines.split("\n"):
-			if "/work/mutants/cassandra/bin" not in line:
+			if "/work/mutant/cassandra/bin" not in line:
 				continue
 			line = line.strip()
 			#Cons.P(line)

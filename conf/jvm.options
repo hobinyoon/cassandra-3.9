@@ -162,7 +162,7 @@
 #-Xms4G
 #-Xmx4G
 
-# Mutants: simulate a small memory node
+# Mutant: simulate a small memory node
 #-Xms512M
 #-Xmx512M
 

@@ -801,7 +801,7 @@ compaction_throughput_mb_per_sec: 0
 # any range that has been written. This helps to smoothly transfer reads
 # between the sstables, reducing page cache churn and keeping hot rows hot
 #
-# Mutants: Would this benefit Mutants?
+# Mutant: Would this benefit Mutant?
 sstable_preemptive_open_interval_in_mb: 50
 
 # Throttles all outbound streaming file transfers on this node to the
