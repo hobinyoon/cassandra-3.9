@@ -572,7 +572,7 @@ public class CassandraDaemon
         // Do not put any references to DatabaseDescriptor above the forceStaticInitialization call.
         try
         {
-            logger.warn("Mutants: CassandraDaemon activate");
+            logger.warn("Mutant: CassandraDaemon activate");
 
             try
             {

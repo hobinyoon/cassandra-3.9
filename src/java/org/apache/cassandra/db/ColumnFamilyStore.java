@@ -70,7 +70,7 @@ import org.apache.cassandra.io.sstable.metadata.MetadataCollector;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.metrics.TableMetrics;
 import org.apache.cassandra.metrics.TableMetrics.Sampler;
-import org.apache.cassandra.mutants.MemSsTableAccessMon;
+import org.apache.cassandra.mutant.MemSsTableAccessMon;
 import org.apache.cassandra.schema.*;
 import org.apache.cassandra.service.CacheService;
 import org.apache.cassandra.service.StorageService;
@@ -412,9 +412,9 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
 
         logger.info("Initializing {}.{}", keyspace.getName(), name);
 
-        if (metadata.mutantsTable) {
+        if (metadata.mutantTable) {
             MemSsTableAccessMon.Reset();
-            //logger.warn("Mutants: metadata={}", metadata);
+            //logger.warn("Mutant: metadata={}", metadata);
         }
 
         // scan for sstables corresponding to this cf and load them
@@ -1207,7 +1207,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 {
                     readBarrier.await();
                     memtable.setDiscarded();
-                    if (memtable.cfs.metadata.mutantsTable)
+                    if (memtable.cfs.metadata.mutantTable)
                         MemSsTableAccessMon.Discarded(memtable);
                 }
             });

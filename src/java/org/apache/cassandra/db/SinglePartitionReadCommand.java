@@ -42,7 +42,7 @@ import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.metrics.TableMetrics;
-import org.apache.cassandra.mutants.MemSsTableAccessMon;
+import org.apache.cassandra.mutant.MemSsTableAccessMon;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.schema.IndexMetadata;
@@ -359,8 +359,8 @@ public class SinglePartitionReadCommand extends ReadCommand
     @SuppressWarnings("resource") // we close the created iterator through closing the result of this method (and SingletonUnfilteredPartitionIterator ctor cannot fail)
     protected UnfilteredPartitionIterator queryStorage(final ColumnFamilyStore cfs, ReadExecutionController executionController)
     {
-        //logger.warn("Mutants: mutantsTable={}, cfs.isRowCacheEnabled()={}"
-        //        , cfs.metadata.mutantsTable, cfs.isRowCacheEnabled());
+        //logger.warn("Mutant: mutantTable={}, cfs.isRowCacheEnabled()={}"
+        //        , cfs.metadata.mutantTable, cfs.isRowCacheEnabled());
 
         UnfilteredRowIterator partition = cfs.isRowCacheEnabled()
                                         ? getThroughCache(cfs, executionController)
@@ -497,7 +497,7 @@ public class SinglePartitionReadCommand extends ReadCommand
     {
         assert executionController != null && executionController.validForReadOn(cfs);
 
-        //logger.warn("Mutants:\n{}", Tracer.GetCallStack());
+        //logger.warn("Mutant:\n{}", Tracer.GetCallStack());
         // org.apache.cassandra.db.SinglePartitionReadCommand.queryMemtableAndDisk(SinglePartitionReadCommand.java:497)
         // org.apache.cassandra.db.SinglePartitionReadCommand.queryStorage(SinglePartitionReadCommand.java:363)
         // org.apache.cassandra.db.ReadCommand.executeLocally(ReadCommand.java:397)
@@ -522,7 +522,7 @@ public class SinglePartitionReadCommand extends ReadCommand
 
     private UnfilteredRowIterator queryMemtableAndDiskInternal(ColumnFamilyStore cfs)
     {
-        //logger.warn("Mutants: mutantsTable={}", cfs.metadata.mutantsTable);
+        //logger.warn("Mutant: mutantTable={}", cfs.metadata.mutantTable);
 
         /*
          * We have 2 main strategies:
@@ -544,11 +544,11 @@ public class SinglePartitionReadCommand extends ReadCommand
         ClusteringIndexFilter filter = clusteringIndexFilter();
         long minTimestamp = Long.MAX_VALUE;
 
-        if (cfs.metadata.mutantsTable) {
-            logger.warn("Mutants: ksName={} cfName={} Just to see if a Mutants table takes this path"
+        if (cfs.metadata.mutantTable) {
+            logger.warn("Mutant: ksName={} cfName={} Just to see if a Mutant table takes this path"
                     , cfs.metadata.ksName, cfs.metadata.cfName);
         }
-        // Mutants: ksName=system_traces takes this path.
+        // Mutant: ksName=system_traces takes this path.
 
         try
         {
@@ -741,8 +741,8 @@ public class SinglePartitionReadCommand extends ReadCommand
 
         ImmutableBTreePartition result = null;
 
-        //if (cfs.metadata.mutantsTable) {
-        //    logger.warn("Mutants: ksName={} cfName={}"
+        //if (cfs.metadata.mutantTable) {
+        //    logger.warn("Mutant: ksName={} cfName={}"
         //            , cfs.metadata.ksName, cfs.metadata.cfName);
         //}
 
@@ -758,7 +758,7 @@ public class SinglePartitionReadCommand extends ReadCommand
                 if (iter.isEmpty())
                     continue;
 
-                if (cfs.metadata.mutantsTable) {
+                if (cfs.metadata.mutantTable) {
                     MemSsTableAccessMon.Update(memtable);
                 }
 
@@ -784,7 +784,7 @@ public class SinglePartitionReadCommand extends ReadCommand
             if (filter == null)
                 break;
 
-            // Mutants: BF is test is at a lower level, BigTableReader.java.
+            // Mutant: BF is test is at a lower level, BigTableReader.java.
 
             if (!shouldInclude(sstable))
             {

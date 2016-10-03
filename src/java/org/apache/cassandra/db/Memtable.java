@@ -48,7 +48,7 @@ import org.apache.cassandra.index.transactions.UpdateTransaction;
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.io.sstable.SSTableMultiWriter;
 import org.apache.cassandra.io.sstable.metadata.MetadataCollector;
-import org.apache.cassandra.mutants.MemSsTableAccessMon;
+import org.apache.cassandra.mutant.MemSsTableAccessMon;
 import org.apache.cassandra.service.ActiveRepairService;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -120,7 +120,7 @@ public class Memtable implements Comparable<Memtable>
         this.cfs.scheduleFlush();
         this.columnsCollector = new ColumnsCollector(cfs.metadata.partitionColumns());
 
-        if (cfs.metadata.mutantsTable)
+        if (cfs.metadata.mutantTable)
             MemSsTableAccessMon.Created(this);
     }
 

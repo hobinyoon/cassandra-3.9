@@ -37,7 +37,7 @@ import org.apache.cassandra.io.sstable.ISSTableScanner;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 import org.apache.cassandra.io.util.FileDataInput;
-import org.apache.cassandra.mutants.MemSsTableAccessMon;
+import org.apache.cassandra.mutant.MemSsTableAccessMon;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.slf4j.Logger;
@@ -132,7 +132,7 @@ public class BigTableReader extends SSTableReader
     {
         RowIndexEntry r = getPosition0(key, op, updateCacheAndStats, permitMatchPastLast);
         if (r != null) {
-            if (descriptor.mutantsTable) {
+            if (descriptor.mutantTable) {
                 // Different from SSTableReader.incrementReadCount(), which
                 // seems to include BF negatives.
                 MemSsTableAccessMon.IncrementSstNeedToReadDataFile(this);

@@ -2,7 +2,7 @@ package org.apache.cassandra.config;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
-public class MutantsOptions
+public class MutantOptions
 {
     public boolean migrate_sstables;
 

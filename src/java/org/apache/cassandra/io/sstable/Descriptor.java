@@ -67,7 +67,7 @@ public class Descriptor
     public final Component digestComponent;
     private final int hashCode;
 
-    public final boolean mutantsTable;
+    public final boolean mutantTable;
     private int temperatureLevel;
 
     /**
@@ -113,12 +113,12 @@ public class Descriptor
 
         hashCode = Objects.hashCode(version, this.directory, generation, ksname, cfname, formatType);
 
-        mutantsTable = (ksname.equals("ycsb") && cfname.equals("usertable"));
+        mutantTable = (ksname.equals("ycsb") && cfname.equals("usertable"));
 
         // TODO: enum
         temperatureLevel = 0;
-        if (mutantsTable) {
-            //logger.warn("Mutants: {} {}"
+        if (mutantTable) {
+            //logger.warn("Mutant: {} {}"
             //        , directory
             //        , Directories.coldDataDirectory.location);
             // TODO

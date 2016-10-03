@@ -1149,12 +1149,12 @@ gc_warn_threshold_in_ms: 1000
 # as corrupted.
 # max_value_size_in_mb: 256
 
-mutants_options:
+mutant_options:
     # Option whether to migrate SSTablets to colder storages. Useful for
     # comparing performance.
     migrate_sstables: false
 
-    # How often Mutants makes SSTable migration decisions
+    # How often Mutant makes SSTable migration decisions
     sst_migration_decision_interval_in_ms: 100
     # Tablet temperature monitor time window length
     sst_tempmon_time_window_in_sec: 10

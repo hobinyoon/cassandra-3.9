@@ -45,7 +45,7 @@ import org.apache.cassandra.io.sstable.metadata.MetadataComponent;
 import org.apache.cassandra.io.sstable.metadata.MetadataType;
 import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 import org.apache.cassandra.io.util.*;
-import org.apache.cassandra.mutants.MemSsTableAccessMon;
+import org.apache.cassandra.mutant.MemSsTableAccessMon;
 import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.concurrent.Transactional;
 
@@ -334,7 +334,7 @@ public class BigTableWriter extends SSTableWriter
         sstable.first = getMinimalKey(first);
         sstable.last = getMinimalKey(last);
 
-        if (sstable.descriptor.mutantsTable)
+        if (sstable.descriptor.mutantTable)
             MemSsTableAccessMon.SstCreated(sstable);
 
         return sstable;

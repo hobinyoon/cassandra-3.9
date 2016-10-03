@@ -1,5 +1,7 @@
 package org.apache.cassandra.mutant;
 
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -9,10 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.cassandra.config.Config;
 import org.apache.cassandra.config.DatabaseDescriptor;
-import org.apache.cassandra.config.YamlConfigurationLoader;
 import org.apache.cassandra.db.Memtable;
-import org.apache.cassandra.db.ColumnFamily;
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 
@@ -21,12 +22,19 @@ import org.slf4j.LoggerFactory;
 
 public class MemSsTableAccessMon
 {
-    // We monitor MemTable accesses just to see what's going on internally. Not
-    // needed for the functionality.
-    // 
-    // SSTable accesses are used for tablet migration decisions.
+    // MemSsTableAccessMon keeps access statistics to Memtable and SSTables,
+    // and periodically logs statistics. SstTempMon uses the SSTable access
+    // statistics to make SSTable migration decisions. Each has it's own loop.
+    //
+    // SSTable access monitoring is for the SSTable migration decisions.
+    // MemTable access monitoring is just to see/understand what's going on
+    // internally.
     private static Map<Memtable, _MemTableAccCnt> _memTableAccCnt = new ConcurrentHashMap();
     private static Map<Descriptor, _SSTableAccCnt> _ssTableAccCnt = new ConcurrentHashMap();
+
+    // These are for the initial get-and-set synchronizations.
+    private static Object _memTableAccCntLock = new Object();
+    private static Object _ssTableAccCntLock = new Object();
 
     private static volatile boolean _updatedSinceLastOutput = false;
     private static OutputRunnable _or = null;
@@ -34,42 +42,46 @@ public class MemSsTableAccessMon
     private static final Logger logger = LoggerFactory.getLogger(MemSsTableAccessMon.class);
 
     private static class _MemTableAccCnt {
+        // We only keep the number of accesses here. We don't need to know if
+        // the requested record is there or not.
         private AtomicLong accesses;
-        private AtomicLong hits;
         private boolean discarded = false;
         private boolean loggedAfterDiscarded = false;
 
-        public _MemTableAccCnt(long accesses, long hits) {
+        public _MemTableAccCnt(long accesses) {
             this.accesses = new AtomicLong(accesses);
-            this.hits = new AtomicLong(hits);
         }
 
-        public void Increment(boolean hit) {
+        public void Increment() {
             this.accesses.incrementAndGet();
-            if (hit)
-                this.hits.incrementAndGet();
         }
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder(40);
-            sb.append(accesses.get()).append(",").append(hits.get());
-            return sb.toString();
+            return Long.toString(accesses.get());
+            //StringBuilder sb = new StringBuilder(30);
+            //sb.append(accesses.get());
+            //return sb.toString();
         }
     }
 
     private static class _SSTableAccCnt {
         private SSTableReader _sstr;
         //private AtomicLong _bf_positives;
+
+        // This is the actual number of accesses to the data file.
+        // SSTableReader.getReadMeter().count() includes BF negatives.  You
+        // still don't know if it hits the physical disk or not. Frequently
+        // accessed blocks are cached in the Linux page cache.
         private AtomicLong _numNeedToReadDatafile;
 
         private boolean deleted = false;
         private boolean loggedAfterDiscarded = false;
 
-        public _SSTableAccCnt(SSTableReader sstr) {
+        public _SSTableAccCnt(SSTableReader sstr, long numNeedToReadDataFile) {
             _sstr = sstr;
             //_bf_positives = new AtomicLong(0);
-            _numNeedToReadDatafile = new AtomicLong(0);
+            _numNeedToReadDatafile = new AtomicLong(numNeedToReadDataFile);
         }
 
         //public void IncrementBfPositives() {
@@ -86,14 +98,20 @@ public class MemSsTableAccessMon
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder(80);
-            sb.append(_sstr.getReadMeter().count())
-                //.append(",").append(_bf_positives.get())
-                .append(",").append(_numNeedToReadDatafile.get())
-                .append(",").append(_sstr.getBloomFilterTruePositiveCount())
-                .append(",").append(_sstr.getBloomFilterFalsePositiveCount())
-                ;
+            StringBuilder sb = new StringBuilder(40);
+            // Note: Keep the level here for now. It may change at runtime.
+            sb.append(_sstr.getSSTableLevel())
+                .append(",")
+                .append(_numNeedToReadDatafile.get());
             return sb.toString();
+            // We don't need bloom filter statistics for now.
+            //StringBuilder sb = new StringBuilder(30);
+            //sb.append(_numNeedToReadDatafile.get());
+            //    // We don't need bloom filter statistics for now.
+            //    //.append(",")._sstr.getReadMeter().count())
+            //    ////.append(",").append(_bf_positives.get())
+            //    //.append(",").append(_sstr.getBloomFilterTruePositiveCount())
+            //    //.append(",").append(_sstr.getBloomFilterFalsePositiveCount())
         }
     }
 
@@ -107,53 +125,59 @@ public class MemSsTableAccessMon
         // design.
     }
 
-    public static void Clear() {
+    // Called when a ColumnFamilyStore (table) is created.
+    public static void Reset() {
         _memTableAccCnt.clear();
         _ssTableAccCnt.clear();
-        logger.warn("MTDB: ClearAccStat");
-        YamlConfigurationLoader.mtdbLogConfig();
+        logger.warn("Mutant: ResetMon");
+        logger.warn("Mutant: Node configuration:[{}]", Config.GetNodeConfigStr());
     }
 
-    public static void Update(Memtable m, ColumnFamily cf) {
-        // There is a race condition here, but harmless.  It happens only when
-        // m is not in the map yet, which is very rare.
-        //
+    public static void Update(Memtable m) {
+        _updatedSinceLastOutput = true;
+
         // I wonder if you can get the min and max timestamps of records in the
         // memtable? I don't see them from Memtable.
+        // - I can't remember why you needed it.
         _MemTableAccCnt v = _memTableAccCnt.get(m);
-        if (v != null) {
-            v.Increment(cf != null);
-            _updatedSinceLastOutput = true;
+        if (v == null) {
+            synchronized (_memTableAccCntLock) {
+                v = _memTableAccCnt.get(m);
+                if (v == null) {
+                    _memTableAccCnt.put(m, new _MemTableAccCnt(1));
+                    _or.Wakeup();
+                } else {
+                    v.Increment();
+                }
+            }
         } else {
-            _memTableAccCnt.put(m, new _MemTableAccCnt(1, (cf == null) ? 0 : 1));
-            _updatedSinceLastOutput = true;
-            _or.Wakeup();
+            v.Increment();
         }
     }
 
-
-    public static void Update(SSTableReader r) {
-        Descriptor sst_desc = r.descriptor;
-
-        // The race condition (time of check and modify) that may overwrite the
-        // first put() is harmless. It avoids an expensive locking.
-        // Log right after the first access to a tablet, i.e., right after the
-        // creation of _SSTableAccCnt(). It will help visualize the gap between
-        // the creation of the tmp tablet and the first access to the regular
-        // tablet.
-        if (_ssTableAccCnt.get(sst_desc) == null) {
-            _ssTableAccCnt.put(sst_desc, new _SSTableAccCnt(r));
-            _updatedSinceLastOutput = true;
-            _or.Wakeup();
-        } else {
-            _updatedSinceLastOutput = true;
-        }
-    }
-
-
+    // These can be rewritten with test and test-and-set if needed.
+    //
+    //public static void Update(SSTableReader r) {
+    //    Descriptor sst_desc = r.descriptor;
+    //
+    //    // The race condition (time of check and modify) that may overwrite the
+    //    // first put() is harmless. It avoids an expensive locking.
+    //    // Log right after the first access to a tablet, i.e., right after the
+    //    // creation of _SSTableAccCnt(). It will help visualize the gap between
+    //    // the creation of the tmp tablet and the first access to the regular
+    //    // tablet.
+    //    if (_ssTableAccCnt.get(sst_desc) == null) {
+    //        _ssTableAccCnt.put(sst_desc, new _SSTableAccCnt(r));
+    //        _updatedSinceLastOutput = true;
+    //        _or.Wakeup();
+    //    } else {
+    //        _updatedSinceLastOutput = true;
+    //    }
+    //}
+    //
     //public static void BloomfilterPositive(SSTableReader r) {
     //    Descriptor sst_desc = r.descriptor;
-
+    //
     //    _SSTableAccCnt sstAC = _ssTableAccCnt.get(sst_desc);
     //    if (sstAC == null) {
     //        sstAC = new _SSTableAccCnt(r);
@@ -167,20 +191,29 @@ public class MemSsTableAccessMon
     //    }
     //}
 
+    // Mutant: I wonder how much overhead does this Monitoring has.  Might be
+    // a good one to present.
 
     public static void IncrementSstNeedToReadDataFile(SSTableReader r) {
+        _updatedSinceLastOutput = true;
         Descriptor sst_desc = r.descriptor;
-
         _SSTableAccCnt sstAC = _ssTableAccCnt.get(sst_desc);
+
+        // Test and test-and-set to make the synchronization overhead
+        // minimal. It happens only in the beginning when _ssTableAccCnt
+        // doesn't have the _SSTableAccCnt object.
         if (sstAC == null) {
-            sstAC = new _SSTableAccCnt(r);
-            sstAC.IncrementNumNeedToReadDataFile();
-            _ssTableAccCnt.put(sst_desc, sstAC);
-            _updatedSinceLastOutput = true;
-            _or.Wakeup();
+            synchronized (_ssTableAccCntLock) {
+                sstAC = _ssTableAccCnt.get(sst_desc);
+                if (sstAC == null) {
+                    _ssTableAccCnt.put(sst_desc, new _SSTableAccCnt(r, 1));
+                    _or.Wakeup();
+                } else {
+                    sstAC.IncrementNumNeedToReadDataFile();
+                }
+            }
         } else {
             sstAC.IncrementNumNeedToReadDataFile();
-            _updatedSinceLastOutput = true;
         }
     }
 
@@ -188,6 +221,7 @@ public class MemSsTableAccessMon
     public static long GetNumSstNeedToReadDataFile(SSTableReader r) {
         _SSTableAccCnt sstAC = _ssTableAccCnt.get(r.descriptor);
         if (sstAC == null) {
+            // TODO: what was this?
             // Harmless
             return 0;
         } else {
@@ -198,15 +232,9 @@ public class MemSsTableAccessMon
 
     // MemTable created
     public static void Created(Memtable m) {
-        logger.warn("MTDB: MemtCreated {}", m);
+        logger.warn("Mutant: MemtCreated {}", m);
         if (_memTableAccCnt.get(m) == null)
-            _memTableAccCnt.put(m, new _MemTableAccCnt(0, 0));
-        _or.Wakeup();
-    }
-
-    // SSTable created. A tmp sstable is created.
-    public static void Created(Descriptor d) {
-        logger.warn("MTDB: SstCreated {}", d);
+            _memTableAccCnt.put(m, new _MemTableAccCnt(0));
         _or.Wakeup();
     }
 
@@ -221,8 +249,34 @@ public class MemSsTableAccessMon
         v.discarded = true;
 
         _updatedSinceLastOutput = true;
-        logger.warn("MTDB: MemtDiscard {}", m);
+        logger.warn("Mutant: MemtDiscard {}", m);
         _or.Wakeup();
+    }
+
+    private static SimpleDateFormat _sdf = new SimpleDateFormat("yyMMdd-HHmmss.SSS");
+
+    public static void SstOpened(SSTableReader r) {
+        Timestamp min_ts = new Timestamp(r.getMinTimestamp() / 1000);
+        Timestamp max_ts = new Timestamp(r.getMaxTimestamp() / 1000);
+        logger.warn("Mutant: SstOpened descriptor={} openReason={} bytesOnDisk()={}"
+                + " level={} minTimestamp={} maxTimestamp={} first.getToken()={} last.getToken()={}"
+                , r.descriptor, r.openReason, r.bytesOnDisk()
+                , r.getSSTableLevel()
+                , _sdf.format(min_ts), _sdf.format(max_ts)
+                , r.first.getToken(), r.last.getToken()
+                );
+    }
+
+    public static void SstCreated(SSTableReader r) {
+        Timestamp min_ts = new Timestamp(r.getMinTimestamp() / 1000);
+        Timestamp max_ts = new Timestamp(r.getMaxTimestamp() / 1000);
+        logger.warn("Mutant: SstCreated descriptor={} openReason={} bytesOnDisk()={}"
+                + " level={} minTimestamp={} maxTimestamp={} first.getToken()={} last.getToken()={}"
+                , r.descriptor, r.openReason, r.bytesOnDisk()
+                , r.getSSTableLevel()
+                , _sdf.format(min_ts), _sdf.format(max_ts)
+                , r.first.getToken(), r.last.getToken()
+                );
     }
 
     // SSTable discarded
@@ -236,13 +290,13 @@ public class MemSsTableAccessMon
         v.deleted = true;
 
         _updatedSinceLastOutput = true;
-        logger.warn("MTDB: SstDeleted {}", d);
+        logger.warn("Mutant: SstDeleted {}", d);
         _or.Wakeup();
     }
 
     private static class OutputRunnable implements Runnable {
         static final long reportIntervalMs =
-            DatabaseDescriptor.getMutantOptions().tablet_access_stat_report_interval_simulation_time_ms;
+            DatabaseDescriptor.getMutantOptions().tablet_access_stat_report_interval_in_ms;
 
         private final Object _sleepLock = new Object();
 
@@ -312,6 +366,9 @@ public class MemSsTableAccessMon
                                 , m.toString()
                                 , pair.getValue().toString()));
                 }
+
+                // Note: Could reduce the log by printing out the diff.
+                // SSTables without changes in counts are not printed.
                 for (Iterator it = _ssTableAccCnt.entrySet().iterator(); it.hasNext(); ) {
                     Map.Entry pair = (Map.Entry) it.next();
                     Descriptor d = (Descriptor) pair.getKey();
@@ -351,7 +408,7 @@ public class MemSsTableAccessMon
                     sb.append(i);
                 }
 
-                logger.warn("MTDB: TabletAccessStat {}", sb.toString());
+                logger.warn("Mutant: TabletAccessStat {}", sb.toString());
             }
         }
     }

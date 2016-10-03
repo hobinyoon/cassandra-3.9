@@ -2229,8 +2229,8 @@ public class DatabaseDescriptor
         return Integer.valueOf(System.getProperty("cassandra.search_concurrency_factor", "1"));
     }
 
-    public static MutantsOptions getMutantsOptions()
+    public static MutantOptions getMutantOptions()
     {
-        return conf.mutants_options;
+        return conf.mutant_options;
     }
 }

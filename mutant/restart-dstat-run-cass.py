@@ -26,15 +26,15 @@ def main(argv):
 	# Run Cassandra in the foreground. grep needs to be unbuffered.
 	Util.RunSubp("cgexec -g memory:small_mem %s/work/mutant/cassandra/bin/cassandra -f" \
 			" | \grep --color=always --line-buffered -E '(^" \
-			"|Mutants: ClearAccStat" \
-			"|Mutants: MemtCreated" \
-			"|Mutants: MemtDiscard" \
-			"|Mutants: SstDeleted" \
-			"|Mutants: SSTableReader" \
-			"|Mutants: SstCreated" \
-			"|Mutants: SstOpened" \
-			"|Mutants" \
-			"|mutants_" \
+			"|Mutant: ClearAccStat" \
+			"|Mutant: MemtCreated" \
+			"|Mutant: MemtDiscard" \
+			"|Mutant: SstDeleted" \
+			"|Mutant: SSTableReader" \
+			"|Mutant: SstCreated" \
+			"|Mutant: SstOpened" \
+			"|Mutant" \
+			"|mutant_" \
 			"|MTDB" \
 			"|ERROR" \
 			")'" \

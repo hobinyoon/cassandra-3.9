@@ -306,7 +306,7 @@ public class Config
 
     public int windows_timer_interval = 0;
 
-    public MutantsOptions mutants_options = new MutantsOptions();
+    public MutantOptions mutant_options = new MutantOptions();
 
     /**
      * Size of the CQL prepared statements cache in MB.

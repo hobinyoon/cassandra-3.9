@@ -17,6 +17,11 @@ import org.apache.cassandra.db.compaction.CompactionManager;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.mutant.MemSsTableAccessMon;
 
+// How are SstTempMon and MemSsTableAccessMon different?
+// - MemSsTableAccessMon keeps access statistics to the MemTable and SSTables.
+//   SstTempMon pulls the SSTable statistics periodically for making SSTable
+//   migration decisions.
+// - TODO: Do you want to refactor them?
 
 public class SstTempMon {
     private static final Logger logger = LoggerFactory.getLogger(SstTempMon.class);
@@ -28,8 +33,8 @@ public class SstTempMon {
     // Called by DateTieredCompactionStrategy.addSSTable(SSTableReader
     // sstable). Seems like it is called at most once per sstable.
     public static void StartMonitor(ColumnFamilyStore cfs, SSTableReader sstr) {
-        if ((! DatabaseDescriptor.getMutantOptions().migrate_to_cold_storage)
-                || (! sstr.descriptor.mtdbTable))
+        if ((! DatabaseDescriptor.getMutantOptions().migrate_sstables)
+                || (! sstr.descriptor.mutantTable))
             return;
 
         // Only SSTables in hot storage are monitored
@@ -43,12 +48,12 @@ public class SstTempMon {
         monitors.put(sstr, new Monitor(cfs, sstr));
     }
 
-    // It is called multiple times for a sstable. It can be called for a
+    // It is called multiple times for a sstable. It can also be called for a
     // sstable that doesn't have a temperature monitor started.  They are all
     // harmless.
     public static void StopMonitor(SSTableReader sstr) {
-        if ((! DatabaseDescriptor.getMutantOptions().migrate_to_cold_storage)
-                || (! sstr.descriptor.mtdbTable))
+        if ((! DatabaseDescriptor.getMutantOptions().migrate_sstables)
+                || (! sstr.descriptor.mutantTable))
             return;
 
         Monitor m = monitors.remove(sstr);
@@ -67,9 +72,9 @@ public class SstTempMon {
     // I think returning a non-existant SSTableReader due to a race should be
     // okay. Will be taken care of by CompactionManager or something.
     //
-    // Make sure a SStable is returned at most once. A second
-    // CompactionExecutors can pull the same one as the first one and do a busy
-    // loop for quite a while.
+    // Make sure a SStable is returned at most once. Otherwise, the second
+    // CompactionExecutors pulls a duplicate one and runs a busy loop for quite
+    // a while.
     public static SSTableReader GetColdest() {
         SSTableReader coldestSstr = null;
         long oldestBecameColdAtNs = 0;
@@ -101,7 +106,7 @@ public class SstTempMon {
         }
 
         if (coldestSstr != null)
-            logger.warn("MTDB: GetColdest()={}", coldestSstr.descriptor.generation);
+            logger.warn("Mutant: GetColdest()={}", coldestSstr.descriptor.generation);
         return coldestSstr;
     }
 
@@ -130,7 +135,7 @@ public class SstTempMon {
                     _thread = null;
                 }
             } catch (InterruptedException e) {
-                logger.warn("MTDB: InterruptedException {}", e);
+                logger.warn("Mutant: InterruptedException {}", e);
             }
             _mr = null;
         }
@@ -141,11 +146,11 @@ public class SstTempMon {
     }
 
     private static class MonitorRunnable implements Runnable {
-        private static final long temperatureCheckIntervalMs;
+        private static final long sstMigrationDecisionIntervalMs;
 
         static {
-            temperatureCheckIntervalMs = DatabaseDescriptor.getMutantOptions().tablet_temperature_monitor_interval_simulation_time_ms;
-            logger.warn("MTDB: temperatureCheckIntervalMs={}", temperatureCheckIntervalMs);
+            sstMigrationDecisionIntervalMs = DatabaseDescriptor.getMutantOptions().sst_migration_decision_interval_in_ms;
+            logger.warn("Mutant: sstMigrationDecisionIntervalMs={}", sstMigrationDecisionIntervalMs);
         }
 
         private final ColumnFamilyStore cfs;
@@ -165,7 +170,7 @@ public class SstTempMon {
 
         public void Stop() {
             synchronized (_sleepLock) {
-                //logger.warn("MTDB: gen={} stop requested", _sstr.descriptor.generation);
+                //logger.warn("Mutant: gen={} stop requested", _sstr.descriptor.generation);
                 _stopRequested = true;
                 _sleepLock.notify();
             }
@@ -178,16 +183,11 @@ public class SstTempMon {
         // A sliding time window that monitors the number of
         // need-to-access-dfiles. This doesn't need to be multi-threaded.
         private static class AccessQueue {
-            private static final long coldnessMonitorTimeWindowSimulationNs;
-            private static final double coldnessThreshold;
-            private static final double dayOverTimeWindowDays;
+            private static final double sstTempMonTimeWindowNs;
 
             static {
-                double timeWindowSimulatedDays = DatabaseDescriptor.getMutantOptions().tablet_coldness_monitor_time_window_simulated_time_days;
-                coldnessMonitorTimeWindowSimulationNs =
-                    SimTime.toSimulationTimeDurNs((long) (timeWindowSimulatedDays * 24.0 * 3600 * 1000000000));
-                coldnessThreshold = DatabaseDescriptor.getMutantOptions().tablet_coldness_threshold;
-                dayOverTimeWindowDays = 1.0 / timeWindowSimulatedDays;
+                sstTempMonTimeWindowNs = DatabaseDescriptor.getMutantOptions().sst_tempmon_time_window_in_sec
+                    * 1000000000.0;
             }
 
             private class Element {
@@ -218,7 +218,7 @@ public class SstTempMon {
                     if (e == null)
                         break;
                     long accessTimeAgeNs = curNs - e.timeNs;
-                    if (accessTimeAgeNs > coldnessMonitorTimeWindowSimulationNs) {
+                    if (accessTimeAgeNs > sstTempMonTimeWindowNs) {
                         numAccessesInQ -= e.numAccesses;
                         elements.remove();
                     } else {
@@ -233,24 +233,21 @@ public class SstTempMon {
                 }
             }
 
+            // TODO: Below level n or TemperatureLevel() would be even better
             public boolean BelowColdnessThreshold(long curNano) {
                 long monitorDurNs = curNano - tabletCreationTimeNs;
-                if (monitorDurNs < coldnessMonitorTimeWindowSimulationNs) {
-                    //logger.warn("MTDB: Not enough time has passed. monitorDurNs={}", monitorDurNs);
+                if (monitorDurNs < sstTempMonTimeWindowNs) {
+                    //logger.warn("Mutant: Not enough time has passed. monitorDurNs={}", monitorDurNs);
                     return false;
                 }
 
-                //double numAccessesPerDay = numAccessesInQ
-                //    * SimTime.toSimulationTimeDurNs(24.0 * 3600 * 1000000000)
-                //    / coldnessMonitorTimeWindowSimulationNs;
-                double numAccessesPerDay = numAccessesInQ * dayOverTimeWindowDays;
-                //logger.warn("MTDB: TempMon numAccessesPerDay={}", numAccessesPerDay);
-                return (numAccessesPerDay < coldnessThreshold);
+                return (((double)numAccessesInQ) / sstTempMonTimeWindowNs
+                        < DatabaseDescriptor.getMutantOptions().sst_tempmon_threshold_num_per_sec);
             }
         }
 
         public void run() {
-            logger.warn("MTDB: TempMon Start {}", _sstr.descriptor.generation);
+            logger.warn("Mutant: TempMon Start {}", _sstr.descriptor.generation);
             long prevNnrd = -1;
             long prevNano = -1;
             AccessQueue q = new AccessQueue(_tabletCreationTimeNs);
@@ -258,7 +255,7 @@ public class SstTempMon {
             while (! _stopRequested) {
                 synchronized (_sleepLock) {
                     try {
-                        _sleepLock.wait(temperatureCheckIntervalMs);
+                        _sleepLock.wait(sstMigrationDecisionIntervalMs);
                     } catch(InterruptedException e) {
                     }
                 }
@@ -278,8 +275,10 @@ public class SstTempMon {
                 q.DeqEnq(curNano, nnrd - prevNnrd);
                 if (q.BelowColdnessThreshold(curNano)) {
                     becameColdAtNs = curNano;
-                    logger.warn("MTDB: TempMon TabletBecomeCold {}", _sstr.descriptor.generation);
-                    _sstr.BecomeCold();
+                    logger.warn("Mutant: TempMon TabletBecomeCold {}", _sstr.descriptor.generation);
+                    // TODO: Mark the sstable as cold. Or mark it as ready to
+                    // be migrated to the next colder level.
+                    //_sstr.BecomeCold();
                     CompactionManager.instance.submitBackground(cfs);
                     // Stop monitoring when a SSTable becomes cold.  SSTables
                     // only age. No anti-aging.
@@ -290,7 +289,7 @@ public class SstTempMon {
                 prevNano = curNano;
             }
 
-            logger.warn("MTDB: TempMon Stop {}", _sstr.descriptor.generation);
+            logger.warn("Mutant: TempMon Stop {}", _sstr.descriptor.generation);
         }
     }
 }

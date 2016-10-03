@@ -38,7 +38,7 @@ import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.io.FSWriteError;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.io.util.RandomAccessReader;
-import org.apache.cassandra.mutants.MemSsTableAccessMon;
+import org.apache.cassandra.mutant.MemSsTableAccessMon;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.memory.HeapAllocator;
 import org.apache.cassandra.utils.Pair;
@@ -118,7 +118,7 @@ public abstract class SSTable
         if (components.contains(Component.SUMMARY))
             FileUtils.delete(desc.filenameFor(Component.SUMMARY));
 
-        if (desc.mutantsTable)
+        if (desc.mutantTable)
             MemSsTableAccessMon.Deleted(desc);
         return true;
     }

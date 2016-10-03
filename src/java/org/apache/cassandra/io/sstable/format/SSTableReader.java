@@ -59,7 +59,7 @@ import org.apache.cassandra.io.sstable.metadata.*;
 import org.apache.cassandra.io.util.*;
 import org.apache.cassandra.metrics.RestorableMeter;
 import org.apache.cassandra.metrics.StorageMetrics;
-import org.apache.cassandra.mutants.MemSsTableAccessMon;
+import org.apache.cassandra.mutant.MemSsTableAccessMon;
 import org.apache.cassandra.schema.CachingParams;
 import org.apache.cassandra.schema.IndexMetadata;
 import org.apache.cassandra.service.ActiveRepairService;
@@ -446,8 +446,8 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
             sstable.bf = FilterFactory.AlwaysPresent;
             sstable.setup(false);
 
-            if (sstable.descriptor.mutantsTable) {
-                logger.warn("Mutants: SstOpen {} {} bytes",
+            if (sstable.descriptor.mutantTable) {
+                logger.warn("Mutant: SstOpen {} {} bytes",
                         sstable.descriptor, new File(sstable.descriptor.filenameFor(Component.DATA)).length());
             }
 
@@ -511,10 +511,10 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
             if (sstable.getKeyCache() != null)
                 logger.trace("key cache contains {}/{} keys", sstable.getKeyCache().size(), sstable.getKeyCache().getCapacity());
 
-            // ERROR 17:46:27.695 [Reference-Reaper:1] Ref.java:224 LEAK DETECTED: a reference (org.apache.cassandra.utils.concurrent.Ref$State@2007809e) to class org.apache.cassandra.io.sstable.format.SSTableReader$InstanceTidier@784366318:/mnt/local-ssd0/mutants/cassandra/data/data/ycsb/usertable-9a53688081b511e6b66d3d7595663f3d/mc-1-big was not released before the reference was garbage collected
+            // ERROR 17:46:27.695 [Reference-Reaper:1] Ref.java:224 LEAK DETECTED: a reference (org.apache.cassandra.utils.concurrent.Ref$State@2007809e) to class org.apache.cassandra.io.sstable.format.SSTableReader$InstanceTidier@784366318:/mnt/local-ssd0/mutant/cassandra/data/data/ycsb/usertable-9a53688081b511e6b66d3d7595663f3d/mc-1-big was not released before the reference was garbage collected
             //
             // The error disappeared for nothing. Hmm.
-            if (sstable.descriptor.mutantsTable)
+            if (sstable.descriptor.mutantTable)
                 MemSsTableAccessMon.SstOpened(sstable);
 
             return sstable;
@@ -647,8 +647,8 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
 
         // Figuring out where this is called. The caller must initialize
         // first and last after this.
-        //if (desc.mutantsTable) {
-        //    //logger.warn("Mutants:\n{}", Tracer.GetCallStack());
+        //if (desc.mutantTable) {
+        //    //logger.warn("Mutant:\n{}", Tracer.GetCallStack());
         //}
         // org.apache.cassandra.io.sstable.format.SSTableReader.<init>(SSTableReader.java:678)
         // org.apache.cassandra.io.sstable.format.big.BigTableReader.<init>(BigTableReader.java:60)
@@ -2019,9 +2019,9 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
      */
     public void incrementReadCount()
     {
-        // Mutants: This includes BF negatives. Actual disk IO may or may not
+        // Mutant: This includes BF negatives. Actual disk IO may or may not
         // happen. Monitoring BigTableReader is better.
-        //if (metadata.mutantsTable) {
+        //if (metadata.mutantTable) {
         //    MemSsTableAccessMon.Update(this);
         //}
 
