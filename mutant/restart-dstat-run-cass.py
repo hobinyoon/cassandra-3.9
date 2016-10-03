@@ -24,7 +24,9 @@ def main(argv):
 	Util.RunSubp("sudo cgconfigparser -l %s/cgconfig.conf" % os.path.dirname(__file__))
 
 	# Run Cassandra in the foreground. grep needs to be unbuffered.
-	Util.RunSubp("cgexec -g memory:small_mem %s/work/mutant/cassandra/bin/cassandra -f" \
+	#Util.RunSubp("cgexec -g memory:small_mem %s/work/mutant/cassandra/bin/cassandra -f" \
+	# No memory limit
+	Util.RunSubp("%s/work/mutant/cassandra/bin/cassandra -f" \
 			" | \grep --color=always --line-buffered -E '(^" \
 			"|Mutant: ClearAccStat" \
 			"|Mutant: MemtCreated" \
