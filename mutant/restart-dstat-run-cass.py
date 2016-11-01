@@ -20,13 +20,12 @@ def main(argv):
 
 	KillExistingCassandra()
 
-	# Load the cgroup config
-	Util.RunSubp("sudo cgconfigparser -l %s/cgconfig.conf" % os.path.dirname(__file__))
+	if False:
+		# Load the cgroup config
+		Util.RunSubp("sudo cgconfigparser -l %s/cgconfig.conf" % os.path.dirname(__file__))
 
-	# Run Cassandra in the foreground. grep needs to be unbuffered.
-	#Util.RunSubp("cgexec -g memory:small_mem %s/work/mutant/cassandra/bin/cassandra -f" \
-	# No memory limit
-	Util.RunSubp("%s/work/mutant/cassandra/bin/cassandra -f" \
+		# Run Cassandra in the foreground. grep needs to be unbuffered.
+		Util.RunSubp("cgexec -g memory:small_mem %s/work/mutant/cassandra/bin/cassandra -f" \
 			" | \grep --color=always --line-buffered -E '(^" \
 			"|Mutant: ClearAccStat" \
 			"|Mutant: MemtCreated" \
@@ -41,6 +40,23 @@ def main(argv):
 			"|ERROR" \
 			")'" \
 			% os.path.expanduser("~"))
+	else:
+		# No memory limit
+		Util.RunSubp("%s/work/mutant/cassandra/bin/cassandra -f" \
+				" | \grep --color=always --line-buffered -E '(^" \
+				"|Mutant: ClearAccStat" \
+				"|Mutant: MemtCreated" \
+				"|Mutant: MemtDiscard" \
+				"|Mutant: SstDeleted" \
+				"|Mutant: SSTableReader" \
+				"|Mutant: SstCreated" \
+				"|Mutant: SstOpened" \
+				"|Mutant" \
+				"|mutant_" \
+				"|MTDB" \
+				"|ERROR" \
+				")'" \
+				% os.path.expanduser("~"))
 
 
 _tags = None
