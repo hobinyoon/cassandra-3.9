@@ -20,6 +20,9 @@ def main(argv):
 
 	KillExistingCassandra()
 
+	# Restore the stored cass-data-data, when needed
+	#cmd = "rsync -a --delete -r /mnt/local-ssd0/cass-data-data/cassandra-data /mnt/local-ssd1/"
+
 	if False:
 		# Load the cgroup config
 		Util.RunSubp("sudo cgconfigparser -l %s/cgconfig.conf" % os.path.dirname(__file__))
