@@ -23,6 +23,7 @@ def main(argv):
 	# Restore the stored cass-data-data, when needed
 	#cmd = "rsync -a --delete -r /mnt/local-ssd0/cass-data-data/cassandra-data /mnt/local-ssd1/"
 
+	# With memory limit
 	if False:
 		# Load the cgroup config
 		Util.RunSubp("sudo cgconfigparser -l %s/cgconfig.conf" % os.path.dirname(__file__))
@@ -43,8 +44,9 @@ def main(argv):
 			"|ERROR" \
 			")'" \
 			% os.path.expanduser("~"))
+
+	# No memory limit
 	else:
-		# No memory limit
 		Util.RunSubp("%s/work/mutant/cassandra/bin/cassandra -f" \
 				" | \grep --color=always --line-buffered -E '(^" \
 				"|Mutant: ClearAccStat" \
@@ -60,6 +62,10 @@ def main(argv):
 				"|ERROR" \
 				")'" \
 				% os.path.expanduser("~"))
+
+	# You want to put this in the exit hook. It's not going to be called in a
+	# normal way.
+	StopDstat()
 
 
 _tags = None
@@ -108,39 +114,7 @@ def InstId():
 
 def RestartDstat():
 	with Cons.MT("Restarting dstat ...", print_time=False):
-		cmd = "ps -e -o pid,ppid,user,args"
-		lines = Util.RunSubp(cmd, print_cmd=False, print_output=False)
-		#Cons.P(lines)
-		pids = []
-		for line in lines.split("\n"):
-			line = line.strip()
-			if "dstat" not in line:
-				continue
-			if "csv" not in line:
-				continue
-
-			# Get the second-level processes, skipping the root-level ones.
-			t = re.split(" +", line)
-			if t[1] == "1":
-				continue
-			pids.append(t[0])
-			#Cons.P("[%s]" % line)
-
-		if len(pids) > 0:
-			#Cons.P("[%s]" % " ".join(pids))
-			Util.RunSubp("kill %s" % " ".join(pids))
-
-			# Make sure each of the processes has terminated
-			for pid in pids:
-				cmd = "kill -0 %s" % pid
-				while True:
-					r = 0
-					with open(os.devnull, "w") as devnull:
-						r = subprocess.Popen(cmd, shell=True, stdin=devnull, stdout=devnull, stderr=devnull)
-					if r != 0:
-						Cons.P("Process %s has terminated" % pid)
-						break
-					time.sleep(0.1)
+		_StopDstat()
 
 		# Run dstat as a daemon
 		dn = "%s/work/mutant/log/%s/%s/dstat" \
@@ -154,6 +128,47 @@ def RestartDstat():
 		# TODO: include devices if exist
 		cmd = "dstat -tcdn -C total -D xvda,xvdb,xvdc,xvdd,xvde,xvdf -r --output %s" % fn_out
 		Util.RunDaemon(cmd)
+
+
+def _StopDstat():
+	cmd = "ps -e -o pid,ppid,user,args"
+	lines = Util.RunSubp(cmd, print_cmd=False, print_output=False)
+	#Cons.P(lines)
+	pids = []
+	for line in lines.split("\n"):
+		line = line.strip()
+		if "dstat" not in line:
+			continue
+		if "csv" not in line:
+			continue
+
+		# Get the second-level processes, skipping the root-level ones.
+		t = re.split(" +", line)
+		if t[1] == "1":
+			continue
+		pids.append(t[0])
+		#Cons.P("[%s]" % line)
+
+	if len(pids) > 0:
+		#Cons.P("[%s]" % " ".join(pids))
+		Util.RunSubp("kill %s" % " ".join(pids))
+
+		# Make sure each of the processes has terminated
+		for pid in pids:
+			cmd = "kill -0 %s" % pid
+			while True:
+				r = 0
+				with open(os.devnull, "w") as devnull:
+					r = subprocess.Popen(cmd, shell=True, stdin=devnull, stdout=devnull, stderr=devnull)
+				if r != 0:
+					Cons.P("Process %s has terminated" % pid)
+					break
+				time.sleep(0.1)
+
+
+def StopDstat():
+	with Cons.MT("Stopping dstat ...", print_time=False):
+		_StopDtat()
 
 
 def KillExistingCassandra():
